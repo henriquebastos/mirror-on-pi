@@ -33,3 +33,9 @@ async function realExisting(path: string): Promise<string> {
     }
   }
 }
+
+// File globs (find patterns, grep file filters) must stay below the search directory.
+export function isRelativeGlob(glob: string): boolean {
+  if (glob.startsWith("/") || glob.startsWith("~") || glob.startsWith("\\")) return false;
+  return !glob.split(/[\\/]/).includes("..");
+}

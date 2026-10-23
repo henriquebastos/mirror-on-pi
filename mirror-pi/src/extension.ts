@@ -8,7 +8,7 @@ import { loadIdentity, loadJourney, type Journey } from "./content.ts";
 import { isRecord, stringField, type JsonRecord } from "./json.ts";
 import { renderMemoryContext } from "./memory-context.ts";
 import type { MemoryClient, MemoryError, MemoryScope, QueryHit } from "./memory-client.ts";
-import { resolveInside } from "./paths.ts";
+import { isRelativeGlob, resolveInside } from "./paths.ts";
 import { recordCorrection, saveJournal, type RecordContext, type RecordReceipt } from "./records.ts";
 import { assertNever, type Result } from "./result.ts";
 
@@ -160,8 +160,11 @@ async function recallFor(client: MemoryClient, state: Ready, prompt: string, ses
 
 async function toolBlockReason(toolName: string, input: unknown, ctx: ExtensionContext, contentDir: string): Promise<string | undefined> {
   if (!ALLOWED_TOOLS.includes(toolName)) return `Mirror sessions cannot use the ${toolName} tool.`;
-  if (!isVaultTool(toolName)) return undefined;
-  const path = isRecord(input) ? stringField(input, "path") : undefined;
+  if (!isVaultTool(toolName) || !isRecord(input)) return undefined;
+  // find takes a file glob in "pattern"; grep's "pattern" is a text regex and its file glob is "glob".
+  const glob = stringField(input, toolName === "find" ? "pattern" : "glob");
+  if (glob !== undefined && !isRelativeGlob(glob)) return `Glob outside the content vault: ${glob}`;
+  const path = stringField(input, "path");
   if (path === undefined) return undefined;
   const resolved = await resolveInside(contentDir, ctx.cwd, path);
   return resolved.ok ? undefined : resolved.error;

@@ -34,6 +34,13 @@ const MUTANTS: readonly Mutant[] = [
     suite: CONTRACTS,
   },
   {
+    name: "find globs may climb out of the vault",
+    file: "mirror-pi/src/paths.ts",
+    from: 'return !glob.split(/[\\\\/]/).includes("..");',
+    to: "return true;",
+    suite: CONTRACTS,
+  },
+  {
     name: "composition puts the journey before identity",
     file: "mirror-pi/src/compose.ts",
     from: 'add("⛔ HARD CONSTRAINTS", identity.constraints);',

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
-import { resolveInside } from "../../src/paths.ts";
+import { isRelativeGlob, resolveInside } from "../../src/paths.ts";
 import { tempContent } from "../support/content.ts";
 
 test("vault tools may only reach paths inside the content vault", async () => {
@@ -24,4 +24,9 @@ test("a symbolic link cannot lead out of the vault", async () => {
   await symlink("/etc", join(content, "journeys/health/files/etc"));
   assert.ok(!(await resolveInside(content, content, "journeys/health/files/etc/hosts")).ok);
   assert.ok(!(await resolveInside(content, content, "journeys/health/files/etc/new-file")).ok);
+});
+
+test("file globs cannot climb out of the search directory", () => {
+  for (const glob of ["*.md", "**/*.md", "journeys/*/journal/*.md", "a..b.md"]) assert.ok(isRelativeGlob(glob), glob);
+  for (const glob of ["../*", "**/../../etc/*", "/etc/*", "~/.ssh/*", "a\\..\\b"]) assert.ok(!isRelativeGlob(glob), glob);
 });
