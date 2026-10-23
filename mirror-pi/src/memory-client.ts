@@ -28,6 +28,8 @@ export type PageInput = {
   readonly sessionId: string | undefined;
 };
 
+export type MemoryPage = { readonly path: string; readonly body: string; readonly frontmatter: JsonRecord };
+
 export type WrittenPage = { readonly pageId: string; readonly path: string };
 
 export type HookItem = { readonly url: string; readonly body: JsonRecord };
@@ -84,12 +86,13 @@ export class MemoryClient {
     return ok({ pageId, path });
   }
 
-  async readPage(scope: MemoryScope, path: string, signal?: AbortSignal): Promise<Result<{ readonly path: string; readonly body: string }, MemoryError>> {
+  async readPage(scope: MemoryScope, path: string, signal?: AbortSignal): Promise<Result<MemoryPage, MemoryError>> {
     const result = await this.callTool("memory_read_page", { ...scope, path }, signal);
     if (!result.ok) return result;
     const body = stringField(result.value, "body");
     if (body === undefined) return err({ kind: "protocol", message: "memory_read_page returned no body" });
-    return ok({ path: stringField(result.value, "path") ?? path, body });
+    const frontmatter = result.value.frontmatter;
+    return ok({ path: stringField(result.value, "path") ?? path, body, frontmatter: isRecord(frontmatter) ? frontmatter : {} });
   }
 
   // Check reachability and authentication without touching any memory scope.

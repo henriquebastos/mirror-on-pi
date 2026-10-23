@@ -6,3 +6,4 @@ dev/ai-memory/.env
 mirror-pi/evals/results/runs/
 .DS_Store
 *.log
+dev/pi-model-bridge/run/

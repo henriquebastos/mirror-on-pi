@@ -11,10 +11,16 @@ dir="$root/dev/ai-memory"
 image="docker.io/akitaonrails/ai-memory:latest"
 name="mirror-ai-memory-dev"
 port="49390"
+bridge_port="49391"
+llm=0
+for arg in "$@"; do
+  if [ "$arg" = "--llm" ]; then llm=1; fi
+done
 url="http://127.0.0.1:$port"
 
 usage() {
-  echo "Usage: scripts/ai-memory.sh up|down|pull|reset|status|logs" >&2
+  echo "Usage: scripts/ai-memory.sh up|down|pull|reset|status|logs [--llm]" >&2
+  echo "  --llm  consolidate with your Pi models through scripts/model-bridge.sh" >&2
   exit 2
 }
 
@@ -22,6 +28,26 @@ ensure_token() {
   if [ ! -f "$dir/.env" ]; then
     umask 077
     printf 'AI_MEMORY_AUTH_TOKEN=%s\n' "$(openssl rand -hex 24)" > "$dir/.env"
+  fi
+  if ! grep -q '^MIRROR_BRIDGE_TOKEN=' "$dir/.env"; then
+    umask 077
+    printf 'MIRROR_BRIDGE_TOKEN=%s\n' "$(openssl rand -hex 24)" >> "$dir/.env"
+  fi
+}
+
+llm_args() {
+  if [ "$llm" = 1 ]; then
+    bridge_token=$(sed -n 's/^MIRROR_BRIDGE_TOKEN=//p' "$dir/.env")
+    # Improvement proposals wait for approval instead of changing the wiki automatically.
+    printf '%s\n' \
+      --add-host=host.docker.internal:host-gateway \
+      -e AI_MEMORY_LLM_PROVIDER=openai-compat \
+      -e AI_MEMORY_LLM_BASE_URL=http://host.docker.internal:$bridge_port/v1 \
+      -e AI_MEMORY_LLM_MODEL=pi-bridge \
+      -e AI_MEMORY_LLM_COMPAT_STRICT=false \
+      -e LLM_API_KEY="$bridge_token" \
+      -e AI_MEMORY_CONSOLIDATE_ON_SESSION_END=true \
+      -e AI_MEMORY_AUTO_IMPROVE__REQUIRE_APPROVAL=true
   fi
 }
 
@@ -51,7 +77,9 @@ start() {
   ensure_token
   mkdir -p "$dir/data" "$dir/models"
   docker rm -f "$name" >/dev/null 2>&1 || true
+  # shellcheck disable=SC2046 # llm_args prints one argument per line without spaces.
   docker run -d --name "$name" \
+    $(llm_args) \
     -p "127.0.0.1:$port:49374" \
     -v "$dir/data:/data" \
     -v "$dir/models:/data/models" \

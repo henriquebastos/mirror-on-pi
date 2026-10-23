@@ -6,5 +6,14 @@
     "workspace": "mirror-dev",
     "tokenFile": "../dev/ai-memory/.env"
   },
-  "model": { "provider": "openai", "id": "gpt-6-astra", "thinking": "medium" }
+  "model": {
+    "provider": "openai",
+    "id": "gpt-6-astra",
+    "thinking": "medium"
+  },
+  "consolidation": {
+    "provider": "anthropic",
+    "id": "claude-haiku-5-5",
+    "bridgePort": 49391
+  }
 }
