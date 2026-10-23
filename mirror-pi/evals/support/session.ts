@@ -1,24 +1,17 @@
-// Run a real Pi SDK session with the Mirror extension and a scripted model.
-// The model is fake; Pi, the extension, the vault, and AI Memory are real.
+// Run a real Pi SDK session in a journey directory with Mirror's extensions, as a manual session would.
+// Pi loads the vault's AGENTS.md files itself. Only the model and the AI Memory client are chosen by the eval.
 import { mkdtemp } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxProvider, type Api, type FauxResponseStep, type Model } from "@earendil-works/pi-ai";
-import {
-  createAgentSession,
-  DefaultResourceLoader,
-  ModelRuntime,
-  SessionManager,
-  SettingsManager,
-  type AgentSession,
-} from "@earendil-works/pi-coding-agent";
-import { assertNever } from "../../src/result.ts";
-import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
-import { ALLOWED_TOOLS, createMirrorExtension } from "../../src/extension.ts";
+import { createAgentSession, DefaultResourceLoader, ModelRuntime, SettingsManager, type AgentSession } from "@earendil-works/pi-coding-agent";
+import type { SessionManager } from "@earendil-works/pi-coding-agent";
+import { createCaptureExtension } from "../../extensions/capture.ts";
+import { createCorrectionsExtension } from "../../extensions/corrections.ts";
+import { createJournalExtension } from "../../extensions/journal.ts";
+import { createRecallExtension } from "../../extensions/recall.ts";
 import type { MemoryClient } from "../../src/memory-client.ts";
-
-const MODE_PROMPT = fileURLToPath(new URL("../../prompts/mirror-mode.md", import.meta.url));
+import { assertNever } from "../../src/result.ts";
 
 type ThinkingLevel = NonNullable<NonNullable<Parameters<typeof createAgentSession>[0]>["thinkingLevel"]>;
 
@@ -28,13 +21,10 @@ export type EvalModel =
   | { readonly kind: "real"; readonly provider: string; readonly id: string; readonly thinking: ThinkingLevel };
 
 export type MirrorSessionOptions = {
-  readonly contentDir: string;
-  readonly workspace: string;
-  readonly journey: string;
+  readonly cwd: string;
   readonly client: MemoryClient;
   readonly model: EvalModel;
   readonly sessionManager: SessionManager;
-  readonly persona?: string;
   readonly now?: () => Date;
 };
 
@@ -46,30 +36,24 @@ export type MirrorSession = {
 export async function openMirrorSession(options: MirrorSessionOptions): Promise<MirrorSession> {
   const agentDir = await mkdtemp(join(tmpdir(), "mirror-eval-agent-"));
   const { runtime, model, thinkingLevel } = await modelFor(options.model, agentDir);
+  const now = options.now ?? ((): Date => new Date());
   const loader = new DefaultResourceLoader({
-    cwd: options.contentDir,
+    cwd: options.cwd,
     agentDir,
     noExtensions: true,
     noSkills: true,
     noPromptTemplates: true,
-    noContextFiles: true,
     noThemes: true,
     extensionFactories: [
-      createMirrorExtension({
-        contentDir: options.contentDir,
-        workspace: options.workspace,
-        journey: options.journey,
-        persona: options.persona,
-        organization: false,
-        modePrompt: await readFile(MODE_PROMPT, "utf8"),
-        client: options.client,
-        ...(options.now === undefined ? {} : { now: options.now }),
-      }),
+      createCaptureExtension(options.client),
+      createRecallExtension(options.client),
+      createJournalExtension(options.client, now),
+      createCorrectionsExtension(options.client, now),
     ],
   });
   await loader.reload();
   const { session } = await createAgentSession({
-    cwd: options.contentDir,
+    cwd: options.cwd,
     agentDir,
     modelRuntime: runtime,
     model,
@@ -77,7 +61,6 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
     resourceLoader: loader,
     sessionManager: options.sessionManager,
     settingsManager: SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: false } }),
-    tools: [...ALLOWED_TOOLS],
   });
   await session.bindExtensions({});
   return {
@@ -111,6 +94,3 @@ async function modelFor(choice: EvalModel, agentDir: string): Promise<{ runtime:
   }
 }
 
-export function persistentSessions(contentDir: string, sessionDir: string): SessionManager {
-  return SessionManager.create(contentDir, sessionDir);
-}

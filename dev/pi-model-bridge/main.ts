@@ -1,4 +1,4 @@
-// Start the bridge from the development profile and dev/ai-memory/.env.
+// Start the bridge from dev/pi-model-bridge/bridge.json and dev/ai-memory/.env.
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -15,9 +15,9 @@ async function main(): Promise<number> {
     console.error("MIRROR_BRIDGE_TOKEN is missing from dev/ai-memory/.env. Run scripts/ai-memory.sh up --llm.");
     return 1;
   }
-  const settings = consolidationSettings(parseJson(await readFile(join(ROOT, "config/dev.json"), "utf8")));
+  const settings = consolidationSettings(parseJson(await readFile(join(ROOT, "dev/pi-model-bridge/bridge.json"), "utf8")));
   if (settings === undefined) {
-    console.error("config/dev.json needs consolidation.provider, consolidation.id, and consolidation.bridgePort");
+    console.error("dev/pi-model-bridge/bridge.json needs provider, id, and port");
     return 1;
   }
   const { provider, modelId, port } = settings;
@@ -33,11 +33,11 @@ async function main(): Promise<number> {
   return 0;
 }
 
-function consolidationSettings(profile: unknown): { provider: string; modelId: string; port: number } | undefined {
-  if (!isRecord(profile) || !isRecord(profile.consolidation)) return undefined;
-  const provider = stringField(profile.consolidation, "provider");
-  const modelId = stringField(profile.consolidation, "id");
-  const port = profile.consolidation.bridgePort;
+function consolidationSettings(config: unknown): { provider: string; modelId: string; port: number } | undefined {
+  if (!isRecord(config)) return undefined;
+  const provider = stringField(config, "provider");
+  const modelId = stringField(config, "id");
+  const port = config.port;
   if (provider === undefined || modelId === undefined || typeof port !== "number") return undefined;
   return { provider, modelId, port };
 }

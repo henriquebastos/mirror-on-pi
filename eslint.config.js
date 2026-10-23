@@ -34,7 +34,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["mirror-pi/extension/index.ts"],
+    files: ["mirror-pi/extensions/*.ts"],
     rules: { "no-restricted-syntax": "off" },
   },
 );

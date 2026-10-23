@@ -1,0 +1,5 @@
+{
+  "provider": "anthropic",
+  "id": "claude-haiku-5-5",
+  "port": 49391
+}

@@ -3,19 +3,17 @@
 // The AI Memory page is a published copy that makes the record recallable.
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { journeyDir } from "./content.ts";
+import type { Journey } from "./journey.ts";
 import type { JsonRecord } from "./json.ts";
 import { renderMarkdown } from "./markdown.ts";
-import type { MemoryClient, MemoryError, MemoryScope, PageInput, WrittenPage } from "./memory-client.ts";
+import type { MemoryClient, MemoryError, PageInput, WrittenPage } from "./memory-client.ts";
 import { err, ok, type Result } from "./result.ts";
 import { slugify } from "./slug.ts";
 
 export type RecordKind = "journal" | "correction";
 
 export type RecordContext = {
-  readonly contentDir: string;
-  readonly journey: string;
-  readonly scope: MemoryScope;
+  readonly journey: Journey;
   readonly sessionId: string | undefined;
   readonly now: () => Date;
 };
@@ -46,7 +44,7 @@ export async function saveJournal(client: MemoryClient, context: RecordContext, 
   return publish(client, context, "journal", {
     date,
     title,
-    frontmatter: { type: "journal", title, date: date.toISOString(), journey: context.journey, session: context.sessionId ?? null },
+    frontmatter: { type: "journal", title, date: date.toISOString(), journey: context.journey.slug, session: context.sessionId ?? null },
     body: `# ${title}\n\n${body}\n\n_Journal entry, ${date.toISOString().slice(0, 10)}._`,
     tier: "episodic",
     pinned: false,
@@ -74,7 +72,7 @@ export async function recordCorrection(client: MemoryClient, context: RecordCont
   return publish(client, context, "correction", {
     date,
     title: topic,
-    frontmatter: { type: "correction", topic, date: date.toISOString(), journey: context.journey, session: context.sessionId ?? null },
+    frontmatter: { type: "correction", topic, date: date.toISOString(), journey: context.journey.slug, session: context.sessionId ?? null },
     body: lines.join("\n"),
     tier: "semantic",
     pinned: true,
@@ -95,7 +93,7 @@ type Publication = {
 };
 
 async function publish(client: MemoryClient, context: RecordContext, kind: RecordKind, publication: Publication): Promise<Result<RecordReceipt, string>> {
-  const directory = join(journeyDir(context.contentDir, context.journey), DIRECTORIES[kind]);
+  const directory = join(context.journey.dir, DIRECTORIES[kind]);
   await mkdir(directory, { recursive: true });
   const stem = `${publication.date.toISOString().slice(0, 10)}-${slugify(publication.title)}`;
   const text = renderMarkdown(publication.frontmatter, publication.body);
@@ -105,7 +103,7 @@ async function publish(client: MemoryClient, context: RecordContext, kind: Recor
     const name = attempt === 1 ? `${stem}.md` : `${stem}-${String(attempt)}.md`;
     const path = join(directory, name);
     if (!(await createExclusive(path, text))) continue;
-    const memory = await client.writePage(context.scope, {
+    const memory = await client.writePage(context.journey.scope, {
       path: `${DIRECTORIES[kind]}/${name}`,
       body: publication.body,
       tier: publication.tier,

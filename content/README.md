@@ -1,12 +1,14 @@
 # Mirror content vault
 
-Open this directory as an Obsidian vault. Mirror reads identity and journey definitions from here and writes journal entries and corrections into each journey.
+Open this directory as an Obsidian vault. Start Pi in a journey directory to talk with the mirror about that journey.
 
 This starter content is synthetic and tracked in Git. Journal entries and corrections that sessions write here are ignored by Git.
-For personal content, use a vault outside this repository: copy `config/dev.json`, set `contentDir` to your vault, and start Mirror with `MIRROR_PROFILE=<your profile> bin/mirror start <journey>`.
+For development sessions, `scripts/dev-setup.sh` copies this vault to `~/.local/state/mirror/vault-dev`.
 
-- `identity/` — who the mirror is and who it speaks with. Mirror never edits these files.
-- `journeys/<slug>/journey.md` — one durable topic. Its frontmatter names the AI Memory project.
-- `journeys/<slug>/journal/` — journal entries saved by Mirror on request.
-- `journeys/<slug>/corrections/` — corrections recorded by Mirror on request.
+- `AGENTS.md` — how the mirror answers. Pi loads it in every journey directory.
+- `identity/` — who the mirror is and who it speaks with. The model reads these files and does not edit them.
+- `journeys/<slug>/AGENTS.md` — one durable topic and its context.
+- `journeys/<slug>/.ai-memory.toml` — the journey's AI Memory workspace and project. Give each journey its own project.
+- `journeys/<slug>/journal/` — journal entries saved on request.
+- `journeys/<slug>/corrections/` — corrections recorded on request.
 - `journeys/<slug>/files/` — your own PDFs, images, and notes for the journey.

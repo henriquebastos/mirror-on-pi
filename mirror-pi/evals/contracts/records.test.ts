@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { parseMarkdown } from "../../src/markdown.ts";
 import { MemoryClient } from "../../src/memory-client.ts";
 import { recordCorrection, saveJournal, type RecordContext } from "../../src/records.ts";
-import { tempContent } from "../support/content.ts";
+import { tempVault } from "../support/content.ts";
 
 const fixed = (): Date => new Date("2026-10-23T08:30:00Z");
 
@@ -21,7 +21,8 @@ function memory(fail: boolean): { client: MemoryClient; writes: unknown[] } {
 }
 
 async function context(): Promise<RecordContext> {
-  return { contentDir: await tempContent(), journey: "health", scope: { workspace: "mirror", project: "health" }, sessionId: "s1", now: fixed };
+  const vault = await tempVault("mirror");
+  return { journey: { dir: vault.journey("health"), slug: "health", scope: { workspace: "mirror", project: "health" } }, sessionId: "s1", now: fixed };
 }
 
 test("a journal entry is written to the vault without overwriting an earlier entry, then published", async () => {
@@ -30,9 +31,9 @@ test("a journal entry is written to the vault without overwriting an earlier ent
   const first = await saveJournal(client, ctx, { title: "Noite difícil", body: "Dormi às 2h." });
   const second = await saveJournal(client, ctx, { title: "Noite difícil", body: "Outra noite." });
   assert.ok(first.ok && second.ok);
-  const files = (await readdir(join(ctx.contentDir, "journeys/health/journal"))).sort();
+  const files = (await readdir(join(ctx.journey.dir, "journal"))).sort();
   assert.deepEqual(files, ["2026-10-23-noite-dificil-2.md", "2026-10-23-noite-dificil.md"]);
-  const document = parseMarkdown(await readFile(join(ctx.contentDir, "journeys/health/journal", files[1] ?? ""), "utf8"));
+  const document = parseMarkdown(await readFile(join(ctx.journey.dir, "journal", files[1] ?? ""), "utf8"));
   assert.ok(document.ok);
   assert.equal(document.value.frontmatter.journey, "health");
   assert.equal(document.value.body, "# Noite difícil\n\nDormi às 2h.\n\n_Journal entry, 2026-10-23._");
@@ -73,5 +74,5 @@ test("a name taken in AI Memory but free in the vault moves both to the next nam
   const receipt = await saveJournal(client, ctx, { title: "Walk", body: "Evening walk." });
   assert.ok(receipt.ok && receipt.value.memory.ok);
   assert.deepEqual(paths, ["journal/2026-10-23-walk.md", "journal/2026-10-23-walk-2.md"]);
-  assert.deepEqual(await readdir(join(ctx.contentDir, "journeys/health/journal")), ["2026-10-23-walk-2.md"]);
+  assert.deepEqual(await readdir(join(ctx.journey.dir, "journal")), ["2026-10-23-walk-2.md"]);
 });

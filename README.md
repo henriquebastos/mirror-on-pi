@@ -1,36 +1,38 @@
 # Mirror
 
-Mirror is a reflective companion that runs as ordinary Pi sessions.
-It reads your identity and journeys from a Markdown vault, remembers across sessions through AI Memory, and saves journal entries and corrections only when you ask.
+Mirror is a reflective companion that runs as plain Pi sessions in a Markdown vault.
+Each journey is a directory. Pi reads the vault's `AGENTS.md` files, the model reads your identity files, and a few small extensions remember across sessions through AI Memory and save journal entries and corrections when you ask.
 
-## Start
+## Start (development)
 
 ```sh
 pnpm install
 scripts/ai-memory.sh up --llm  # local development AI Memory on 127.0.0.1:49390
 scripts/model-bridge.sh start  # lets AI Memory consolidate with your Pi models
-bin/mirror doctor
-bin/mirror journeys
-bin/mirror start health        # new session in the health journey
-bin/mirror start health -c     # continue the latest health session
+scripts/dev-setup.sh           # once: auth link and a development copy of the vault
+
+cd ~/.local/state/mirror/vault-dev/journeys/health
+PI_CODING_AGENT_DIR=~/me/mirror/dev/pi-agent ~/me/mirror/node_modules/.bin/pi       # new session
+PI_CODING_AGENT_DIR=~/me/mirror/dev/pi-agent ~/me/mirror/node_modules/.bin/pi -c    # continue
 ```
 
-Each session belongs to one journey. Start another session to talk about another journey.
+Start a session in another journey's directory to talk about that journey.
 You can have many sessions per journey. They share the journey's AI Memory project.
 
 ## How it fits together
 
 | Part | Owner | Location |
 |---|---|---|
+| Mirror's instructions | The vault | `content/AGENTS.md` |
 | Identity, journeys, journal, corrections, your files | You, in an Obsidian vault | `content/` |
-| Conversation history | Pi | Mirror's own Pi agent directory, one session directory per journey |
-| Recall and consolidation across sessions | AI Memory | One project per journey, in one workspace per profile |
-| Mirror behavior | This repository | `mirror-pi/` prompts, extension, and evals |
+| A journey's AI Memory scope | The journey directory | `content/journeys/<slug>/.ai-memory.toml` |
+| Conversation history | Pi | Sessions per working directory, in the Pi agent directory |
+| Recall and consolidation across sessions | AI Memory | One project per journey |
+| Capture, recall, journal, corrections | One small Pi extension each | `mirror-pi/extensions/` |
 
-- `mirror-pi/prompts/mirror-mode.md` — how the mirror answers.
-- `mirror-pi/extension/` — the Pi extension: identity context, journey binding, capture, recall, and records.
 - `mirror-pi/docs/` — architecture, TypeScript guidelines, and evals.
-- `config/dev.json` — the development profile. Set `MIRROR_PROFILE` to use another one.
+- `dev/pi-agent/` — the Pi agent directory for development sessions.
+- `dev/ai-memory/`, `dev/pi-model-bridge/` — local AI Memory and the model bridge.
 
 ## Checks
 

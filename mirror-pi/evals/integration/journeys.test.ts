@@ -9,7 +9,7 @@ import { fauxAssistantMessage, fauxToolCall, type FauxResponseStep } from "@eare
 import type { TranscriptContext } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { MemoryClient } from "../../src/memory-client.ts";
-import { tempContent } from "../support/content.ts";
+import { tempVault } from "../support/content.ts";
 import { devMemory, observations } from "../support/memory.ts";
 import { openMirrorSession } from "../support/session.ts";
 
@@ -42,11 +42,12 @@ async function sessionsDir(): Promise<string> {
 }
 
 test("separate sessions of one journey share memory: a correction from session 1 reaches session 2", async () => {
-  const content = await tempContent();
+  const vault = await tempVault(memory.workspace);
+  const cwd = vault.journey("health");
   const dir = await sessionsDir();
   const first = await openMirrorSession({
-    contentDir: content, workspace: memory.workspace, journey: "health", client: memory.client,
-    sessionManager: SessionManager.create(content, dir),
+    cwd, client: memory.client,
+    sessionManager: SessionManager.create(cwd, dir),
     model: { kind: "scripted", responses: [
       reply("Tell me more about those Tuesday calls."),
       callTool("mirror_record_correction", { topic: "Late work calls day", previous: "The late work calls are on Tuesdays", corrected: "The late work calls are on Wednesdays" }),
@@ -58,7 +59,7 @@ test("separate sessions of one journey share memory: a correction from session 1
   await first.session.prompt("Correction: the late work calls are on Wednesdays, not Tuesdays.");
   await first.close();
 
-  const corrections = await readdir(join(content, "journeys/health/corrections"));
+  const corrections = await readdir(join(cwd, "corrections"));
   assert.equal(corrections.length, 1);
   const page = await memory.client.readPage(health, `corrections/${corrections[0] ?? ""}`);
   assert.ok(page.ok, page.ok ? "" : page.error.message);
@@ -74,26 +75,41 @@ test("separate sessions of one journey share memory: a correction from session 1
 
   const seen: TranscriptContext[] = [];
   const second = await openMirrorSession({
-    contentDir: content, workspace: memory.workspace, journey: "health", client: memory.client,
-    sessionManager: SessionManager.create(content, dir),
+    cwd, client: memory.client,
+    sessionManager: SessionManager.create(cwd, dir),
     model: { kind: "scripted", responses: [observe(seen, "Your calls are on Wednesdays.")] },
   });
   assert.notEqual(second.session.sessionManager.getSessionId(), firstId);
   await second.session.prompt("Which day are the late work calls?");
   await second.close();
   const context = messagesText(seen[0]);
-  assert.match(context, /Recalled memory for journey \\"Health\\"/);
+  assert.match(context, /Recalled memory for journey \\"health\\"/);
   assert.match(context, /corrections\/[0-9-]+late-work-calls-day\.md/);
   assert.match(context, /Wednesdays/);
-  assert.match(JSON.stringify(seen[0]?.messages[0] ?? {}), /mirror_identity/, "identity is part of the system prompt");
+});
+
+test("Pi loads Mirror's instructions and the journey context from the vault's AGENTS.md files", async () => {
+  const vault = await tempVault(memory.workspace);
+  const session = await openMirrorSession({
+    cwd: vault.journey("career"), client: memory.client,
+    sessionManager: SessionManager.inMemory(vault.journey("career")),
+    model: { kind: "scripted", responses: [reply("What draws you to teaching?")] },
+  });
+  await session.session.prompt("Where do we start?");
+  const system = session.session.systemPrompt;
+  await session.close();
+  assert.match(system, /In this vault you are the user's mirror/);
+  assert.match(system, /# Journey: Career/);
+  assert.doesNotMatch(system, /# Journey: Health/);
+  assert.ok(system.indexOf("In this vault you are the user's mirror") < system.indexOf("# Journey: Career"), "vault instructions come before the journey");
 });
 
 test("a session of another journey captures into its own project only", async () => {
-  const content = await tempContent();
+  const vault = await tempVault(memory.workspace);
   const token = `zephyr-${memory.workspace}`;
   const session = await openMirrorSession({
-    contentDir: content, workspace: memory.workspace, journey: "career", client: memory.client,
-    sessionManager: SessionManager.inMemory(content),
+    cwd: vault.journey("career"), client: memory.client,
+    sessionManager: SessionManager.inMemory(vault.journey("career")),
     model: { kind: "scripted", responses: [reply("What draws you to teaching?")] },
   });
   const id = session.session.sessionManager.getSessionId();
@@ -108,76 +124,63 @@ test("a session of another journey captures into its own project only", async ()
   assert.ok(!JSON.stringify(leaked.value).includes(token));
 });
 
-test("a session bound to one journey cannot be resumed under another journey", async () => {
-  const content = await tempContent();
-  const dir = await sessionsDir();
-  const original = await openMirrorSession({
-    contentDir: content, workspace: memory.workspace, journey: "health", client: memory.client,
-    sessionManager: SessionManager.create(content, dir),
-    model: { kind: "scripted", responses: [reply("Noted.")] },
-  });
-  await original.session.prompt("Evening walks help.");
-  const file = original.session.sessionManager.getSessionFile();
-  const id = original.session.sessionManager.getSessionId();
-  await original.close();
-  assert.ok(file !== undefined);
-
+test("a session outside a journey directory captures nothing and cannot save records", async () => {
+  const vault = await tempVault(memory.workspace);
   const seen: TranscriptContext[] = [];
-  const wrong = await openMirrorSession({
-    contentDir: content, workspace: memory.workspace, journey: "career", client: memory.client,
-    sessionManager: SessionManager.open(file, dir),
-    model: { kind: "scripted", responses: [observe(seen, "should not run")] },
+  const calls: string[] = [];
+  const recording = new MemoryClient(memory.url, undefined, (url) => {
+    calls.push(url);
+    return Promise.reject(new Error("no AI Memory call is expected"));
   });
-  await wrong.session.prompt("Now about my career.");
-  await wrong.close();
-  assert.equal(seen.length, 0, "the model is not called");
-  assert.deepEqual(await observations(memory.client, career, id), [], "nothing is captured into the other journey");
-  const healthRows = await observations(memory.client, health, id);
-  assert.ok(!healthRows.some((row) => row.body.includes("Now about my career")), "the refused prompt is not captured");
+  const session = await openMirrorSession({
+    cwd: vault.root, client: recording,
+    sessionManager: SessionManager.inMemory(vault.root),
+    model: { kind: "scripted", responses: [
+      callTool("mirror_save_journal", { title: "Loose", body: "Not in a journey." }),
+      observe(seen, "I could not save it."),
+    ] },
+  });
+  await session.session.prompt("Save a journal entry: not in a journey.");
+  await session.close();
+  assert.match(messagesText(seen[0]), /not in a journey directory/);
+  assert.deepEqual(calls, [], "no capture, recall, or record reaches AI Memory");
 });
 
-test("journal entries are saved to the vault and published; file tools stay inside the vault", async () => {
-  const content = await tempContent();
+test("journal entries are saved in the journey directory and published to its project", async () => {
+  const vault = await tempVault(memory.workspace);
+  const cwd = vault.journey("health");
   const seen: TranscriptContext[] = [];
   const session = await openMirrorSession({
-    contentDir: content, workspace: memory.workspace, journey: "health", client: memory.client,
-    sessionManager: SessionManager.inMemory(content),
+    cwd, client: memory.client,
+    sessionManager: SessionManager.inMemory(cwd),
     model: { kind: "scripted", responses: [
       callTool("mirror_save_journal", { title: "Quiet evening", body: "No screens after nine. Slept at eleven." }),
-      callTool("read", { path: "../../../../etc/hosts" }),
-      callTool("read", { path: "@/etc/hosts" }),
-      callTool("find", { pattern: "../../../../etc/*" }),
-      callTool("read", { path: "journeys/health/journey.md" }),
       observe(seen, "Saved."),
     ] },
   });
   await session.session.prompt("Please save a journal entry: no screens after nine, slept at eleven.");
   await session.close();
-  const files = await readdir(join(content, "journeys/health/journal"));
+  const files = await readdir(join(cwd, "journal"));
   assert.equal(files.length, 1);
-  assert.match(await readFile(join(content, "journeys/health/journal", files[0] ?? ""), "utf8"), /No screens after nine/);
+  assert.match(await readFile(join(cwd, "journal", files[0] ?? ""), "utf8"), /No screens after nine/);
   const page = await memory.client.readPage(health, `journal/${files[0] ?? ""}`);
   assert.ok(page.ok);
   const transcript = messagesText(seen[0]);
   assert.match(transcript, /Saved journal to .*Published to AI Memory as journal\//);
-  assert.equal(transcript.match(/Path outside the content vault/g)?.length, 2);
-  assert.doesNotMatch(transcript, /localhost/, "no file outside the vault was read");
-  assert.match(transcript, /Glob outside the content vault/);
-  assert.match(transcript, /Sam wants to sleep better/, "reading inside the vault works");
 });
 
 test("an unreachable AI Memory degrades to an explicit notice and does not block the conversation", async () => {
-  const content = await tempContent();
+  const vault = await tempVault(memory.workspace);
   const seen: TranscriptContext[] = [];
   const offline = new MemoryClient("http://127.0.0.1:9", undefined);
   const session = await openMirrorSession({
-    contentDir: content, workspace: memory.workspace, journey: "health", client: offline,
-    sessionManager: SessionManager.inMemory(content),
+    cwd: vault.journey("health"), client: offline,
+    sessionManager: SessionManager.inMemory(vault.journey("health")),
     model: { kind: "scripted", responses: [observe(seen, "I cannot read your memory right now.")] },
   });
   const started = Date.now();
   await session.session.prompt("What did we discuss last week?");
   await session.close();
-  assert.match(messagesText(seen[0]), /AI Memory for journey \\"Health\\" is unavailable \(network/);
+  assert.match(messagesText(seen[0]), /AI Memory for journey \\"health\\" is unavailable \(network/);
   assert.ok(Date.now() - started < 15_000);
 });

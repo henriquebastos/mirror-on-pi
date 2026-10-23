@@ -10,3 +10,7 @@ dev/pi-model-bridge/run/
 # Records written by Mirror sessions are personal; only the synthetic starter content is tracked.
 content/journeys/*/journal/
 content/journeys/*/corrections/
+# Development Pi agent directory: only the shared configuration is tracked.
+dev/pi-agent/*
+!dev/pi-agent/settings.json
+!dev/pi-agent/ai-memory.json

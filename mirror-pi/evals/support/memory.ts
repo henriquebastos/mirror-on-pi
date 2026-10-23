@@ -1,11 +1,12 @@
 // Connect evals to the local development AI Memory service. Each run uses its own workspace.
 import { randomBytes } from "node:crypto";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadProfile, readMemoryToken } from "../../src/config.ts";
 import { isRecord, numberField, stringField } from "../../src/json.ts";
 import { MemoryClient, type MemoryScope } from "../../src/memory-client.ts";
+import { CONFIG_FILE, loadMemoryConfig, readMemoryToken } from "../../src/memory-config.ts";
 
-const DEV_PROFILE = fileURLToPath(new URL("../../../config/dev.json", import.meta.url));
+export const DEV_AGENT_DIR = fileURLToPath(new URL("../../../dev/pi-agent/", import.meta.url));
 
 export type EvalMemory = {
   readonly client: MemoryClient;
@@ -14,15 +15,16 @@ export type EvalMemory = {
 };
 
 export async function devMemory(): Promise<EvalMemory> {
-  const profile = await loadProfile(DEV_PROFILE);
-  if (!profile.ok) throw new Error(profile.error);
-  const token = await readMemoryToken(profile.value.memory, process.env);
+  const config = await loadMemoryConfig(join(DEV_AGENT_DIR, CONFIG_FILE));
+  if (!config.ok) throw new Error(config.error);
+  const token = await readMemoryToken(config.value, process.env);
   if (!token.ok) throw new Error(token.error);
-  const client = new MemoryClient(profile.value.memory.url, token.value);
+  const url = config.value.url;
+  const client = new MemoryClient(url, token.value);
   const workspace = `eval-${new Date().toISOString().slice(0, 19).replace(/[^0-9]/g, "")}-${randomBytes(3).toString("hex")}`;
   const tools = await client.ping();
-  if (!tools.ok) throw new Error(`Development AI Memory is not reachable at ${profile.value.memory.url}. Run scripts/ai-memory.sh up. (${tools.error.message})`);
-  return { client, url: profile.value.memory.url, workspace };
+  if (!tools.ok) throw new Error(`Development AI Memory is not reachable at ${url}. Run scripts/ai-memory.sh up. (${tools.error.message})`);
+  return { client, url, workspace };
 }
 
 export type Observation = { readonly kind: string; readonly body: string };

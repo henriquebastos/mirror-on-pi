@@ -6,11 +6,11 @@ Read [mirror-pi/docs/evals.md](mirror-pi/docs/evals.md) before changing or addin
 
 ## Rules
 
-- Keep Mirror behavior in Markdown prompts where possible. Add TypeScript only for guarantees that prompts cannot enforce.
+- Keep Mirror as close to plain Pi as possible. Put behavior in the vault's `AGENTS.md` files. Add an extension only when Pi cannot do the job, and keep each extension to one job.
 - Never use personal content, personal AI Memory, or retained personal sessions as fixtures. Evals use the synthetic starter vault and the local development AI Memory.
-- Never edit global Pi or AI Memory configuration. Mirror uses its own Pi agent directory and profile.
-- Do not copy credentials. Mirror's Pi agent directory links only `auth.json` to the personal Pi agent directory.
-- A session belongs to one journey. Do not add mid-session journey switching.
+- Never edit global Pi or AI Memory configuration. Development sessions use `dev/pi-agent` and the local AI Memory.
+- Do not copy credentials. `dev/pi-agent` links only `auth.json` to the personal Pi agent directory.
+- A journey is a directory. A session belongs to the journey of its working directory.
 
 ## Validate
 

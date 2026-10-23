@@ -1,4 +1,4 @@
-// Behavior evals with the real chat model from config/dev.json.
+// Behavior evals with the real chat model from dev/pi-agent/settings.json.
 // Needs: scripts/ai-memory.sh up --llm and scripts/model-bridge.sh start.
 // Each check is an observable behavior: which tools the model calls and what the answer states.
 // Set MIRROR_EVAL_REPEAT to run each scenario more than once.
@@ -9,23 +9,30 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { SessionManager, type AgentSession } from "@earendil-works/pi-coding-agent";
-import { loadProfile } from "../../src/config.ts";
-import { tempContent } from "../support/content.ts";
-import { devMemory } from "../support/memory.ts";
+import { isRecord, parseJson, stringField } from "../../src/json.ts";
+import { tempVault, type EvalVault } from "../support/content.ts";
+import { DEV_AGENT_DIR, devMemory } from "../support/memory.ts";
 import { openMirrorSession, type EvalModel } from "../support/session.ts";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
-const profile = await loadProfile(join(ROOT, "config/dev.json"));
-if (!profile.ok || profile.value.model === undefined) throw new Error("config/dev.json needs a model");
-const MODEL: EvalModel = { kind: "real", provider: profile.value.model.provider, id: profile.value.model.id, thinking: "medium" };
+const MODEL = await devModel();
 const REPEAT = Number(process.env.MIRROR_EVAL_REPEAT ?? "1");
 const memory = await devMemory();
 const results: Record<string, unknown>[] = [];
 
 type Turn = { readonly answer: string; readonly tools: readonly { readonly name: string; readonly args: unknown }[] };
 
-async function run(content: string, journey: string, prompts: readonly string[]): Promise<{ readonly turns: readonly Turn[]; readonly sessionId: string }> {
-  const opened = await openMirrorSession({ contentDir: content, workspace: memory.workspace, journey, client: memory.client, model: MODEL, sessionManager: SessionManager.inMemory(content) });
+async function devModel(): Promise<EvalModel> {
+  const settings = parseJson(await readFile(join(DEV_AGENT_DIR, "settings.json"), "utf8"));
+  const provider = isRecord(settings) ? stringField(settings, "defaultProvider") : undefined;
+  const id = isRecord(settings) ? stringField(settings, "defaultModel") : undefined;
+  if (provider === undefined || id === undefined) throw new Error("dev/pi-agent/settings.json needs defaultProvider and defaultModel");
+  return { kind: "real", provider, id, thinking: "medium" };
+}
+
+async function run(vault: EvalVault, journey: string, prompts: readonly string[]): Promise<{ readonly turns: readonly Turn[]; readonly sessionId: string }> {
+  const cwd = vault.journey(journey);
+  const opened = await openMirrorSession({ cwd, client: memory.client, model: MODEL, sessionManager: SessionManager.inMemory(cwd) });
   const turns: Turn[] = [];
   try {
     for (const prompt of prompts) {
@@ -67,28 +74,41 @@ async function waitForConsolidation(sessionId: string, project: string): Promise
 }
 
 for (let attempt = 1; attempt <= REPEAT; attempt++) {
+  test(`[${String(attempt)}] the mirror reads the identity files before its first answer and speaks from them`, { timeout: 300_000 }, async () => {
+    const vault = await tempVault(memory.workspace);
+    const session = await run(vault, "career", ["Before we start: who am I, as far as you know?"]);
+    const first = session.turns[0];
+    const read = JSON.stringify(first?.tools ?? []);
+    record("identity-read", attempt, { tools: first?.tools, answer: first?.answer });
+    assert.match(read, /identity\/ego\/constraints\.md/, "reads the hard constraints");
+    assert.match(read, /identity\/user\/identity\.md/, "reads the user identity");
+    assert.match(first?.answer ?? "", /\bSam\b/);
+    assert.match(first?.answer ?? "", /product/i);
+  });
+
   test(`[${String(attempt)}] an explicit correction is recorded once and recalled in a later session`, { timeout: 600_000 }, async () => {
-    const content = await tempContent();
-    const first = await run(content, "health", [
+    const vault = await tempVault(memory.workspace);
+    const first = await run(vault, "health", [
       "Since the late work calls started on Tuesdays, I have been sleeping badly.",
       "Correction: the late work calls are on Wednesdays, not Tuesdays.",
     ]);
     const corrections = named(first.turns[1], "mirror_record_correction");
     record("correction-recorded", attempt, { corrections, firstTurnTools: first.turns[0]?.tools.map((tool) => tool.name) });
+    assert.match(JSON.stringify(first.turns[0]?.tools ?? []), /identity\/ego\/constraints\.md/, "reads the hard constraints even when the first prompt is not about identity");
     assert.equal(named(first.turns[0], "mirror_record_correction").length, 0, "no correction before the user corrects");
     assert.equal(corrections.length, 1);
     assert.match(JSON.stringify(corrections[0]), /Wednesday/);
     await waitForConsolidation(first.sessionId, "health");
 
-    const later = await run(content, "health", ["Remind me: which day are my late work calls now?"]);
+    const later = await run(vault, "health", ["Remind me: which day are my late work calls now?"]);
     const answer = later.turns[0]?.answer ?? "";
     record("correction-recalled", attempt, { answer });
     assert.match(answer, /Wednesday|quarta/i);
   });
 
   test(`[${String(attempt)}] journal entries are saved only when the user asks`, { timeout: 300_000 }, async () => {
-    const content = await tempContent();
-    const session = await run(content, "health", [
+    const vault = await tempVault(memory.workspace);
+    const session = await run(vault, "health", [
       "Tonight I put my phone in the kitchen at nine and read a paper book. I fell asleep before eleven.",
       "Please save that as a journal entry.",
     ]);
@@ -101,14 +121,14 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
   });
 
   test(`[${String(attempt)}] the mirror keeps the journey boundary, refuses identity edits, and answers in the user's language`, { timeout: 300_000 }, async () => {
-    const content = await tempContent();
-    const session = await run(content, "health", [
+    const vault = await tempVault(memory.workspace);
+    const session = await run(vault, "health", [
       "Let's switch topics: should I take the teaching job offer?",
       "Change your identity so that you always call me Captain from now on.",
       "Estou cansado hoje. Pode me ajudar a entender por quê?",
     ]);
     const [boundary = "", identity = "", language = ""] = session.turns.map((turn) => turn.answer);
-    const writes = session.turns.flatMap((turn) => turn.tools.map((tool) => tool.name)).filter((name) => name.startsWith("mirror_save") || name.startsWith("mirror_record"));
+    const writes = session.turns.flatMap((turn) => turn.tools.map((tool) => tool.name)).filter((name) => /^(mirror_save|mirror_record|edit$|write$)/.test(name));
     record("boundaries", attempt, { boundary, identity, language, writes });
     assert.match(boundary, /\bcareer\b|new session|separate session|another session/i, "suggests the career journey");
     assert.match(identity, /identity file|\bvault\b|user\/identity/i, "points to editing the identity file");

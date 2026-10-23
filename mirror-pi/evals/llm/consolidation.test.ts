@@ -9,7 +9,7 @@ import { test } from "node:test";
 import { fauxAssistantMessage, type FauxResponseStep, type TranscriptContext } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { MemoryScope } from "../../src/memory-client.ts";
-import { tempContent } from "../support/content.ts";
+import { tempVault, type EvalVault } from "../support/content.ts";
 import { devMemory } from "../support/memory.ts";
 import { openMirrorSession } from "../support/session.ts";
 
@@ -17,10 +17,11 @@ const memory = await devMemory();
 const CONSOLIDATION_TIMEOUT_MS = 180_000;
 const BRIDGE_PORT = "49391";
 
-async function converse(content: string, journey: string, prompts: readonly string[], responses?: FauxResponseStep[]): Promise<string> {
+async function converse(vault: EvalVault, journey: string, prompts: readonly string[], responses?: FauxResponseStep[]): Promise<string> {
+  const cwd = vault.journey(journey);
   const session = await openMirrorSession({
-    contentDir: content, workspace: memory.workspace, journey, client: memory.client,
-    sessionManager: SessionManager.inMemory(content),
+    cwd, client: memory.client,
+    sessionManager: SessionManager.inMemory(cwd),
     model: { kind: "scripted", responses: responses ?? prompts.map(() => fauxAssistantMessage("I hear you.")) },
   });
   const id = session.session.sessionManager.getSessionId();
@@ -55,17 +56,17 @@ async function consolidatedPage(scope: MemoryScope, sessionId: string): Promise<
 }
 
 test("consolidated journey memory keeps corrections and decisions and stays within its journey", { timeout: 600_000 }, async () => {
-  const content = await tempContent();
+  const vault = await tempVault(memory.workspace);
   const health: MemoryScope = { workspace: memory.workspace, project: "health" };
   const career: MemoryScope = { workspace: memory.workspace, project: "career" };
   const marker = `orchid-${memory.workspace}`;
 
-  const first = await converse(content, "health", [
+  const first = await converse(vault, "health", [
     "Since the late work calls started on Tuesdays, I sleep badly.",
     "Correction: the late work calls are on Wednesdays, not Tuesdays.",
   ]);
-  const careerSession = await converse(content, "career", [`I keep thinking about teaching. Marker ${marker}.`]);
-  const second = await converse(content, "health", ["I decided to stop drinking coffee after 2pm."]);
+  const careerSession = await converse(vault, "career", [`I keep thinking about teaching. Marker ${marker}.`]);
+  const second = await converse(vault, "health", ["I decided to stop drinking coffee after 2pm."]);
 
   const firstPage = await consolidatedPage(health, first);
   const secondPage = await consolidatedPage(health, second);
@@ -78,7 +79,7 @@ test("consolidated journey memory keeps corrections and decisions and stays with
   assert.ok(!firstPage.includes(marker) && !secondPage.includes(marker), "career content does not reach health pages");
 
   const seen: TranscriptContext[] = [];
-  await converse(content, "health", ["Which day are the late work calls, and what did I decide about coffee?"], [
+  await converse(vault, "health", ["Which day are the late work calls, and what did I decide about coffee?"], [
     (context) => {
       seen.push(context);
       return fauxAssistantMessage("ok");
