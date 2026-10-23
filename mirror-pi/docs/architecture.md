@@ -57,9 +57,11 @@ session_shutdown
 | Capture goes only to the journey's project | Every hook event names workspace and project explicitly. | integration "captures into its own project only" |
 | Undelivered events are retried without duplicates | In-memory queue keeps unacknowledged events with their ingest keys. | `capture.test.ts` |
 | Identity is composed in Mirror's order | Constraints, soul, behavior, user, ego, organization, persona, sorted knowledge, journey. | `content.test.ts` |
-| The mirror cannot edit files or run commands | The tool list has no write, edit, or shell tool. A `tool_call` guard also blocks every tool outside the list. | integration journal/vault test |
-| File reads stay in the vault | Paths are resolved through symbolic links and must stay inside the content directory. | `paths.test.ts` |
-| Records never overwrite | Exclusive file creation and `create_only` pages. | `records.test.ts` |
+| The mirror cannot edit files or run commands | The tool list has no write, edit, or shell tool. A `tool_call` guard also blocks every tool outside the list. | `guard.test.ts` |
+| File reads stay in the vault | The guard applies Pi's own path rewrites (one leading `@`, `~`, `file://`), then resolves symbolic links; the path must stay inside the content directory. `read` also needs the exact file to exist, so Pi's look-alike name fallback never runs. `find` and `grep` globs cannot contain `..` or start at `/` or `~`. | `paths.test.ts`, `guard.test.ts`, integration journal/vault test |
+| A setup failure never runs unguarded Pi | Any error while the extension starts (profile, token file, mode prompt, registration) blocks every prompt and tool call. The launcher also checks the token file first. | `guard.test.ts` |
+| One project per journey | `mirror start`, `mirror journeys`, and `mirror doctor` refuse journeys that share a `memory_project`. | `content.test.ts` |
+| Records never overwrite | Exclusive file creation and `create_only` pages. When a name is free in the vault but taken in AI Memory, both move to the next name. | `records.test.ts` |
 | Memory failure is visible | The context message states that memory is unavailable. Records report a failed publication. | integration "unreachable AI Memory" |
 
 ## Known limits
@@ -70,4 +72,6 @@ session_shutdown
 - Pinned corrections are returned for every query, up to the query limit. Many corrections will crowd out other notes.
 - Recall uses the first 400 characters of the prompt.
 - Explorer, Soul, tasks, attachment search, and identity proposals are not implemented.
+- `--llm` was tested with colima on macOS. On Linux Docker, `host-gateway` is the docker0 address, which cannot reach a bridge bound to 127.0.0.1.
+- Pi still discovers `SYSTEM.md` and `APPEND_SYSTEM.md` in the vault's `.pi` directory. Mirror replaces the system prompt on every turn, but keep these files out of the vault.
 - The interactive launcher shares `auth.json` through a symbolic link. Pi locks the link path, not its target, so an OAuth refresh in Mirror and in personal Pi at the same moment can race. The likely result is a new login.

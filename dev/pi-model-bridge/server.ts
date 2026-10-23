@@ -2,8 +2,6 @@
 // AI Memory uses it for consolidation, so no provider credential is copied into AI Memory.
 // It listens on 127.0.0.1 only and requires a bearer token.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import type { Api, AssistantMessage, Context, Model } from "@earendil-works/pi-ai";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { translateRequest, translateResponse } from "./openai.ts";
@@ -16,6 +14,7 @@ export type BridgeOptions = {
   readonly provider: string;
   readonly modelId: string;
   readonly authPath: string;
+  readonly modelsPath: string;
 };
 
 export type Completer = (model: Model<Api>, context: Context, maxTokens: number | undefined) => Promise<AssistantMessage>;
@@ -23,7 +22,7 @@ export type Completer = (model: Model<Api>, context: Context, maxTokens: number 
 export type RunningBridge = { readonly close: () => Promise<void>; readonly port: number };
 
 export async function startBridge(options: BridgeOptions): Promise<RunningBridge> {
-  const runtime = await ModelRuntime.create({ authPath: options.authPath, modelsPath: join(homedir(), ".local", "state", "mirror", "bridge-models.json") });
+  const runtime = await ModelRuntime.create({ authPath: options.authPath, modelsPath: options.modelsPath });
   const model = runtime.getModel(options.provider, options.modelId);
   if (model === undefined) throw new Error(`Unknown model ${options.provider}/${options.modelId}`);
   // No reasoning option: Pi then sends no thinking request, which suits strict JSON consolidation.

@@ -31,4 +31,4 @@ pnpm test:llm
 pnpm test:behavior          # MIRROR_EVAL_REPEAT=3 for repeated runs
 ```
 
-Behavior evals check observable actions with fixed patterns. A pass shows the behavior happened in that run. Model answers vary, so repeat runs before trusting a change in behavior.
+Behavior evals check observable actions with fixed patterns. The patterns are narrow on purpose: tool calls are checked exactly; answers only for a few phrases. A pass shows the behavior happened in that run. Model answers vary, so repeat runs before trusting a change in behavior.

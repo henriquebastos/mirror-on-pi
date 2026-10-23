@@ -7,3 +7,6 @@ mirror-pi/evals/results/runs/
 .DS_Store
 *.log
 dev/pi-model-bridge/run/
+# Records written by Mirror sessions are personal; only the synthetic starter content is tracked.
+content/journeys/*/journal/
+content/journeys/*/corrections/

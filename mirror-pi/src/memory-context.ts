@@ -29,16 +29,22 @@ export function renderMemoryContext(input: MemoryContextInput): string | undefin
   ];
   if (relevant.length > 0) {
     lines.push("", "Relevant to this message:");
-    for (const hit of relevant) lines.push(`- [${hit.path}] ${hit.title}: ${truncate(hit.snippet)}`);
+    for (const hit of relevant) lines.push(`- [${hit.path}] ${oneLine(hit.title)}: ${truncate(hit.snippet)}`);
   }
   if (recent.length > 0) {
     lines.push("", "Recently updated in this journey:");
-    for (const hit of recent) lines.push(`- [${hit.path}] ${hit.title}`);
+    for (const hit of recent) lines.push(`- [${hit.path}] ${oneLine(hit.title)}`);
   }
   lines.push("", "Use mirror_recall to search this journey's memory for more detail.");
   return lines.join("\n");
 }
 
+// Each hit stays on one line, so recalled text cannot pose as a separate instruction line.
 function truncate(text: string): string {
-  return text.length <= MAX_SNIPPET ? text : `${text.slice(0, MAX_SNIPPET - 1)}…`;
+  const line = oneLine(text);
+  return line.length <= MAX_SNIPPET ? line : `${line.slice(0, MAX_SNIPPET - 1)}…`;
+}
+
+export function oneLine(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }

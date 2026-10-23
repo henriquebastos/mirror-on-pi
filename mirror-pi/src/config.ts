@@ -58,13 +58,24 @@ export function parseProfile(data: unknown, path: string): Result<MirrorProfile,
   });
 }
 
-export async function readMemoryToken(memory: MemoryProfile, env: NodeJS.ProcessEnv): Promise<string | undefined> {
+// No token is a valid answer (AI Memory without authentication); an unreadable token file is an error.
+export async function readMemoryToken(memory: MemoryProfile, env: NodeJS.ProcessEnv): Promise<Result<string | undefined, string>> {
   if (memory.tokenEnv !== undefined) {
     const value = env[memory.tokenEnv]?.trim();
-    if (value !== undefined && value !== "") return value;
+    if (value !== undefined && value !== "") return ok(value);
   }
-  if (memory.tokenFile === undefined) return undefined;
-  const text = await readFile(memory.tokenFile, "utf8");
+  if (memory.tokenFile === undefined) return ok(undefined);
+  let text: string;
+  try {
+    text = await readFile(memory.tokenFile, "utf8");
+  } catch (error) {
+    return err(`Cannot read the AI Memory token file ${memory.tokenFile}: ${error instanceof Error ? error.message : String(error)}. Run scripts/ai-memory.sh up.`);
+  }
+  const token = tokenLine(text);
+  return token === undefined ? err(`${memory.tokenFile} has no AI_MEMORY_AUTH_TOKEN line`) : ok(token);
+}
+
+function tokenLine(text: string): string | undefined {
   for (const line of text.split(/\r?\n/)) {
     const match = /^\s*AI_MEMORY_AUTH_TOKEN\s*=\s*(\S+)\s*$/.exec(line);
     if (match?.[1] !== undefined) return match[1];

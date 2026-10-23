@@ -3,7 +3,7 @@ import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { composeSections, renderSections } from "../../src/compose.ts";
-import { loadIdentity, loadJourney } from "../../src/content.ts";
+import { loadIdentity, loadJourney, sharedProjects, type Journey } from "../../src/content.ts";
 import { tempContent } from "../support/content.ts";
 
 test("composition follows Mirror's section order with persona, organization, sorted knowledge, and journey last", async () => {
@@ -83,4 +83,10 @@ test("a journey defaults its memory project to its slug", async () => {
   assert.equal(reading.value.title, "reading");
   await symlink("/etc", join(content, "journeys/linked"));
   assert.ok(!(await loadJourney(content, "linked")).ok);
+});
+
+test("journeys that share an AI Memory project are reported", () => {
+  const journey = (slug: string, memoryProject: string): Journey => ({ slug, title: slug, status: "active", description: undefined, memoryProject, context: "" });
+  assert.deepEqual(sharedProjects([journey("health", "health"), journey("career", "career")]), []);
+  assert.deepEqual(sharedProjects([journey("health", "life"), journey("career", "career"), journey("family", "life")]), ['journeys health, family share memory_project "life"']);
 });

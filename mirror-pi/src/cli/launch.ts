@@ -16,16 +16,13 @@ export type StartOptions = {
 export function parseStart(args: readonly string[]): StartOptions | undefined {
   const separator = args.indexOf("--");
   const own = separator === -1 ? args : args.slice(0, separator);
-  const { values, positionals } = parseArgs({
-    args: [...own],
-    allowPositionals: true,
-    options: {
-      persona: { type: "string" },
-      org: { type: "boolean", default: false },
-      continue: { type: "boolean", short: "c", default: false },
-      resume: { type: "boolean", short: "r", default: false },
-    },
-  });
+  let parsed: ReturnType<typeof parseOwn>;
+  try {
+    parsed = parseOwn(own);
+  } catch {
+    return undefined;
+  }
+  const { values, positionals } = parsed;
   const journey = positionals[0];
   if (journey === undefined || positionals.length > 1) return undefined;
   return {
@@ -36,6 +33,20 @@ export function parseStart(args: readonly string[]): StartOptions | undefined {
     resume: values.resume,
     passthrough: separator === -1 ? [] : args.slice(separator + 1),
   };
+}
+
+// Throws on unknown or malformed options.
+function parseOwn(own: readonly string[]) {
+  return parseArgs({
+    args: [...own],
+    allowPositionals: true,
+    options: {
+      persona: { type: "string" },
+      org: { type: "boolean", default: false },
+      continue: { type: "boolean", short: "c", default: false },
+      resume: { type: "boolean", short: "r", default: false },
+    },
+  });
 }
 
 export function piArguments(profile: MirrorProfile, journey: string, options: StartOptions, extension: string): string[] {

@@ -145,6 +145,7 @@ test("journal entries are saved to the vault and published; file tools stay insi
     model: { kind: "scripted", responses: [
       callTool("mirror_save_journal", { title: "Quiet evening", body: "No screens after nine. Slept at eleven." }),
       callTool("read", { path: "../../../../etc/hosts" }),
+      callTool("read", { path: "@/etc/hosts" }),
       callTool("find", { pattern: "../../../../etc/*" }),
       callTool("read", { path: "journeys/health/journey.md" }),
       observe(seen, "Saved."),
@@ -159,7 +160,8 @@ test("journal entries are saved to the vault and published; file tools stay insi
   assert.ok(page.ok);
   const transcript = messagesText(seen[0]);
   assert.match(transcript, /Saved journal to .*Published to AI Memory as journal\//);
-  assert.match(transcript, /Path outside the content vault/);
+  assert.equal(transcript.match(/Path outside the content vault/g)?.length, 2);
+  assert.doesNotMatch(transcript, /localhost/, "no file outside the vault was read");
   assert.match(transcript, /Glob outside the content vault/);
   assert.match(transcript, /Sam wants to sleep better/, "reading inside the vault works");
 });

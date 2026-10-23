@@ -16,6 +16,10 @@ test("vault tools may only reach paths inside the content vault", async () => {
   assert.ok(!(await resolveInside(content, content, "/etc/hosts")).ok);
   assert.ok(!(await resolveInside(content, content, "~/.ssh/id_ed25519")).ok);
   assert.ok(!(await resolveInside(content, journeys, "../../outside")).ok);
+  for (const path of ["@/etc/hosts", "@~/.ssh/id_ed25519", "@../config/dev.json", "file:///etc/hosts", "FILE:///etc/hosts"]) {
+    assert.ok(!(await resolveInside(content, content, path)).ok, path);
+  }
+  assert.ok((await resolveInside(content, content, "@journeys/health/journey.md")).ok);
 });
 
 test("a symbolic link cannot lead out of the vault", async () => {

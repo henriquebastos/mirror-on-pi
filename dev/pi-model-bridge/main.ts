@@ -22,7 +22,8 @@ async function main(): Promise<number> {
   }
   const { provider, modelId, port } = settings;
   const authPath = join(process.env.MIRROR_PERSONAL_PI_AGENT_DIR ?? join(homedir(), ".pi", "agent"), "auth.json");
-  const bridge = await startBridge({ port, token, provider, modelId, authPath });
+  const modelsPath = join(homedir(), ".local", "state", "mirror", "bridge-models.json");
+  const bridge = await startBridge({ port, token, provider, modelId, authPath, modelsPath });
   console.log(`Pi model bridge for ${provider}/${modelId} listening on 127.0.0.1:${String(bridge.port)}`);
   const stop = (): void => {
     void bridge.close().then(() => process.exit(0));

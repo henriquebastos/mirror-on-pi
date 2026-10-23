@@ -59,3 +59,19 @@ test("empty records are rejected before anything is written", async () => {
   assert.ok(!(await recordCorrection(client, ctx, { topic: "t", previous: "", corrected: "c", note: undefined })).ok);
   assert.equal(writes.length, 0);
 });
+
+test("a name taken in AI Memory but free in the vault moves both to the next name", async () => {
+  const ctx = await context();
+  const paths: string[] = [];
+  const client = new MemoryClient("http://memory.test", undefined, (_url, init) => {
+    const body: unknown = JSON.parse(typeof init.body === "string" ? init.body : "null");
+    const path = /"path":"([^"]+)"/.exec(JSON.stringify(body))?.[1] ?? "";
+    paths.push(path);
+    if (paths.length === 1) return Promise.resolve(Response.json({ error: { code: -32600, message: "precondition failed", data: { reason: "precondition_failed" } } }));
+    return Promise.resolve(Response.json({ result: { content: [{ type: "text", text: JSON.stringify({ page_id: "p2", path }) }] } }));
+  });
+  const receipt = await saveJournal(client, ctx, { title: "Walk", body: "Evening walk." });
+  assert.ok(receipt.ok && receipt.value.memory.ok);
+  assert.deepEqual(paths, ["journal/2026-10-23-walk.md", "journal/2026-10-23-walk-2.md"]);
+  assert.deepEqual(await readdir(join(ctx.contentDir, "journeys/health/journal")), ["2026-10-23-walk-2.md"]);
+});

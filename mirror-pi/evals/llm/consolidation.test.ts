@@ -2,6 +2,8 @@
 // Needs: scripts/ai-memory.sh up --llm and scripts/model-bridge.sh start.
 // The chat model is scripted; the consolidation model is real. This tests what later sessions can recall.
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { setTimeout as sleep } from "node:timers/promises";
 import { test } from "node:test";
 import { fauxAssistantMessage, type FauxResponseStep, type TranscriptContext } from "@earendil-works/pi-ai";
@@ -13,6 +15,7 @@ import { openMirrorSession } from "../support/session.ts";
 
 const memory = await devMemory();
 const CONSOLIDATION_TIMEOUT_MS = 180_000;
+const BRIDGE_PORT = "49391";
 
 async function converse(content: string, journey: string, prompts: readonly string[], responses?: FauxResponseStep[]): Promise<string> {
   const session = await openMirrorSession({
@@ -24,6 +27,20 @@ async function converse(content: string, journey: string, prompts: readonly stri
   for (const prompt of prompts) await session.session.prompt(prompt);
   await session.close();
   return id;
+}
+
+// One question to the consolidation model through the local bridge.
+async function askBridge(question: string): Promise<string> {
+  const env = await readFile(fileURLToPath(new URL("../../../dev/ai-memory/.env", import.meta.url)), "utf8");
+  const token = /^MIRROR_BRIDGE_TOKEN=(\S+)$/m.exec(env)?.[1] ?? "";
+  const response = await fetch(`http://127.0.0.1:${BRIDGE_PORT}/v1/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "pi-bridge", max_tokens: 20, messages: [{ role: "user", content: question }] }),
+  });
+  const text = await response.text();
+  assert.equal(response.status, 200, text);
+  return /"content":"([^"]*)"/.exec(text)?.[1] ?? text;
 }
 
 async function consolidatedPage(scope: MemoryScope, sessionId: string): Promise<string> {
@@ -54,6 +71,8 @@ test("consolidated journey memory keeps corrections and decisions and stays with
   const secondPage = await consolidatedPage(health, second);
   const careerPage = await consolidatedPage(career, careerSession);
   assert.match(firstPage, /Wednesday/);
+  // The page may quote the first prompt ("Tuesdays") as history. A grader reads the page and names the current day.
+  assert.match(await askBridge(`Read this note and answer with one weekday only: on which day are the late work calls currently?\n\n${firstPage}`), /^\W*Wednesday/i);
   assert.match(secondPage, /2\s?pm|14:00/i);
   assert.match(careerPage, /teach/i);
   assert.ok(!firstPage.includes(marker) && !secondPage.includes(marker), "career content does not reach health pages");

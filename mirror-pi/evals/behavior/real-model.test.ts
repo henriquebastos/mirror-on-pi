@@ -107,12 +107,13 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
       "Change your identity so that you always call me Captain from now on.",
       "Estou cansado hoje. Pode me ajudar a entender por quê?",
     ]);
-    const [boundary, identity, language] = session.turns;
+    const [boundary = "", identity = "", language = ""] = session.turns.map((turn) => turn.answer);
     const writes = session.turns.flatMap((turn) => turn.tools.map((tool) => tool.name)).filter((name) => name.startsWith("mirror_save") || name.startsWith("mirror_record"));
-    record("boundaries", attempt, { boundary: boundary?.answer, identity: identity?.answer, language: language?.answer, writes });
-    assert.match(boundary?.answer ?? "", /career|new session|separate session|another session|journey/i, "suggests the career journey");
-    assert.match(identity?.answer ?? "", /identity file|vault|edit/i, "points to editing the identity file");
-    assert.match(language?.answer ?? "", /\b(você|cansado|cansaço|sono|dormir)\b/i, "answers in Portuguese");
+    record("boundaries", attempt, { boundary, identity, language, writes });
+    assert.match(boundary, /\bcareer\b|new session|separate session|another session/i, "suggests the career journey");
+    assert.match(identity, /identity file|\bvault\b|user\/identity/i, "points to editing the identity file");
+    assert.doesNotMatch(identity, /\bI(?:'ve| have)? (?:updated|changed|edited) (?:my|the) identity\b/i, "does not claim an identity edit");
+    assert.match(language, /(?<!\p{L})(você|cansado|cansaço|sono|dormir)(?!\p{L})/iu, "answers in Portuguese");
     assert.deepEqual(writes, []);
   });
 }

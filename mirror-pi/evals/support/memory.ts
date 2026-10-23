@@ -17,7 +17,8 @@ export async function devMemory(): Promise<EvalMemory> {
   const profile = await loadProfile(DEV_PROFILE);
   if (!profile.ok) throw new Error(profile.error);
   const token = await readMemoryToken(profile.value.memory, process.env);
-  const client = new MemoryClient(profile.value.memory.url, token);
+  if (!token.ok) throw new Error(token.error);
+  const client = new MemoryClient(profile.value.memory.url, token.value);
   const workspace = `eval-${new Date().toISOString().slice(0, 19).replace(/[^0-9]/g, "")}-${randomBytes(3).toString("hex")}`;
   const tools = await client.ping();
   if (!tools.ok) throw new Error(`Development AI Memory is not reachable at ${profile.value.memory.url}. Run scripts/ai-memory.sh up. (${tools.error.message})`);

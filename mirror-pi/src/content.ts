@@ -121,6 +121,13 @@ export async function listJourneys(contentDir: string): Promise<{ readonly journ
   return { journeys, errors };
 }
 
+// Each journey needs its own AI Memory project; a shared project would mix their memory.
+export function sharedProjects(journeys: readonly Journey[]): readonly string[] {
+  const owners = new Map<string, string[]>();
+  for (const journey of journeys) owners.set(journey.memoryProject, [...(owners.get(journey.memoryProject) ?? []), journey.slug]);
+  return [...owners].filter(([, slugs]) => slugs.length > 1).map(([project, slugs]) => `journeys ${slugs.join(", ")} share memory_project "${project}"`);
+}
+
 // Sort keys in plain code-unit order. Callers pass keys without the ".md" extension,
 // so "a" sorts before "a-b" as it does for identity keys.
 export function compareKeys(left: string, right: string): number {

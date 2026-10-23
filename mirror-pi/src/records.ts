@@ -1,7 +1,7 @@
 // Explicit records: journal entries and corrections.
 // The vault file is written first and is the human-editable record.
 // The AI Memory page is a published copy that makes the record recallable.
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { journeyDir } from "./content.ts";
 import type { JsonRecord } from "./json.ts";
@@ -98,30 +98,37 @@ async function publish(client: MemoryClient, context: RecordContext, kind: Recor
   const directory = join(journeyDir(context.contentDir, context.journey), DIRECTORIES[kind]);
   await mkdir(directory, { recursive: true });
   const stem = `${publication.date.toISOString().slice(0, 10)}-${slugify(publication.title)}`;
-  const created = await createExclusive(directory, stem, renderMarkdown(publication.frontmatter, publication.body));
-  if (!created.ok) return created;
-  const memory = await client.writePage(context.scope, {
-    path: `${DIRECTORIES[kind]}/${created.value.name}`,
-    body: publication.body,
-    tier: publication.tier,
-    pinned: publication.pinned,
-    tags: publication.tags,
-    createOnly: true,
-    sessionId: undefined,
-  });
-  return ok({ kind, file: created.value.path, memory });
-}
-
-async function createExclusive(directory: string, stem: string, text: string): Promise<Result<{ readonly path: string; readonly name: string }, string>> {
+  const text = renderMarkdown(publication.frontmatter, publication.body);
+  // A name can be free in the vault but taken in AI Memory, for example after the user deleted a vault file.
+  // Then the vault file is removed again and the next name is tried, so both places use the same name.
   for (let attempt = 1; attempt <= MAX_NAME_ATTEMPTS; attempt++) {
     const name = attempt === 1 ? `${stem}.md` : `${stem}-${String(attempt)}.md`;
     const path = join(directory, name);
-    try {
-      await writeFile(path, text, { flag: "wx" });
-      return ok({ path, name });
-    } catch (error) {
-      if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
+    if (!(await createExclusive(path, text))) continue;
+    const memory = await client.writePage(context.scope, {
+      path: `${DIRECTORIES[kind]}/${name}`,
+      body: publication.body,
+      tier: publication.tier,
+      pinned: publication.pinned,
+      tags: publication.tags,
+      createOnly: true,
+      sessionId: undefined,
+    });
+    if (!memory.ok && memory.error.kind === "rpc" && memory.error.reason === "precondition_failed") {
+      await unlink(path);
+      continue;
     }
+    return ok({ kind, file: path, memory });
   }
   return err(`Could not find a free file name for ${stem}`);
+}
+
+async function createExclusive(path: string, text: string): Promise<boolean> {
+  try {
+    await writeFile(path, text, { flag: "wx" });
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "EEXIST") return false;
+    throw error;
+  }
 }

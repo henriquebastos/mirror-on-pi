@@ -5,8 +5,10 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadProfile, readMemoryToken, type MirrorProfile } from "../config.ts";
-import { listJourneys, loadIdentity, loadJourney } from "../content.ts";
+import { listJourneys, loadIdentity, loadJourney, sharedProjects } from "../content.ts";
 import { MemoryClient } from "../memory-client.ts";
+import { err, ok, type Result } from "../result.ts";
+import type { Journey } from "../content.ts";
 import { parseStart, piArguments } from "./launch.ts";
 
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
@@ -50,8 +52,10 @@ async function journeys(profile: MirrorProfile): Promise<number> {
   const { journeys: found, errors } = await listJourneys(profile.contentDir);
   for (const journey of found) console.log(`${journey.slug.padEnd(24)} ${journey.status.padEnd(10)} ${journey.title}`);
   for (const error of errors) console.error(`invalid journey: ${error.path}: ${error.message}`);
+  const shared = sharedProjects(found);
+  for (const problem of shared) console.error(`invalid journeys: ${problem}`);
   if (found.length === 0) console.log(`No journeys in ${profile.contentDir}`);
-  return errors.length === 0 ? 0 : 1;
+  return errors.length === 0 && shared.length === 0 ? 0 : 1;
 }
 
 async function doctor(profile: MirrorProfile): Promise<number> {
@@ -64,8 +68,11 @@ async function doctor(profile: MirrorProfile): Promise<number> {
   check(identity.ok, identity.ok ? `identity loads from ${profile.contentDir}` : `identity: ${identity.error.message} (${identity.error.path})`);
   const listed = await listJourneys(profile.contentDir);
   check(listed.errors.length === 0 && listed.journeys.length > 0, `${String(listed.journeys.length)} valid journeys, ${String(listed.errors.length)} invalid`);
-  const token = await readMemoryToken(profile.memory, process.env).catch(() => undefined);
-  const client = new MemoryClient(profile.memory.url, token);
+  const shared = sharedProjects(listed.journeys);
+  check(shared.length === 0, shared.length === 0 ? "each journey has its own AI Memory project" : shared.join("; "));
+  const token = await readMemoryToken(profile.memory, process.env);
+  check(token.ok, token.ok ? "AI Memory token is readable" : token.error);
+  const client = new MemoryClient(profile.memory.url, token.ok ? token.value : undefined);
   const tools = await client.ping();
   check(tools.ok && tools.value.includes("memory_query"), tools.ok ? `AI Memory answers at ${profile.memory.url}` : `AI Memory at ${profile.memory.url}: ${tools.error.kind}: ${tools.error.message}`);
   const auth = await authLink(profile);
@@ -76,8 +83,10 @@ async function doctor(profile: MirrorProfile): Promise<number> {
 async function start(profile: MirrorProfile, args: readonly string[]): Promise<number> {
   const options = parseStart(args);
   if (options === undefined) return fail(USAGE);
-  const journey = await loadJourney(profile.contentDir, options.journey);
-  if (!journey.ok) return fail(`${journey.error.message} (${journey.error.path})`);
+  const journey = await startableJourney(profile, options.journey);
+  if (!journey.ok) return fail(journey.error);
+  const token = await readMemoryToken(profile.memory, process.env);
+  if (!token.ok) return fail(token.error);
   const identity = await loadIdentity(profile.contentDir);
   if (!identity.ok) return fail(`${identity.error.message} (${identity.error.path})`);
   if (options.persona !== undefined && !identity.value.personas.has(options.persona)) return fail(`Persona "${options.persona}" does not exist`);
@@ -92,6 +101,14 @@ async function start(profile: MirrorProfile, args: readonly string[]): Promise<n
     MIRROR_ORGANIZATION: options.organization ? "1" : "0",
     AI_MEMORY_CAPTURE_OWNER: "mirror.pi",
   });
+}
+
+async function startableJourney(profile: MirrorProfile, slug: string): Promise<Result<Journey, string>> {
+  const journey = await loadJourney(profile.contentDir, slug);
+  if (!journey.ok) return err(`${journey.error.message} (${journey.error.path})`);
+  const listed = await listJourneys(profile.contentDir);
+  const shared = sharedProjects(listed.journeys).filter((problem) => problem.includes(`"${journey.value.memoryProject}"`));
+  return shared.length === 0 ? ok(journey.value) : err(`Cannot start: ${shared.join("; ")}`);
 }
 
 // Mirror keeps its own Pi agent directory so personal Pi packages and settings do not load.
