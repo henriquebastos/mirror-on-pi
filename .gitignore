@@ -1,0 +1,8 @@
+node_modules/
+.scratch/
+dev/ai-memory/data/
+dev/ai-memory/models/
+dev/ai-memory/.env
+mirror-pi/evals/results/runs/
+.DS_Store
+*.log
