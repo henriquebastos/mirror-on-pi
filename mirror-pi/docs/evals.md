@@ -7,7 +7,9 @@ Evals define what "working as intended" means. Each one states a behavior and fa
 | Contracts | `mirror-pi/evals/contracts/` | Nothing | Pure rules: composition order, binding decisions, path guard, capture retries, record files, protocol parsing, launch flags. |
 | Integration | `mirror-pi/evals/integration/` | Local AI Memory | Real Pi sessions with the real extension and a scripted model against real AI Memory: capture scope, multi-session recall, binding refusal, records, degraded memory. |
 | Negative controls | `mirror-pi/evals/mutants.ts` | Both of the above | Each listed guarantee is broken in turn and the evals must fail. |
-| Quality | `mirror-pi/evals/quality/` (planned) | A real model | Reflective answers on synthetic multi-session scenarios, graded blind. |
+| LLM consolidation | `mirror-pi/evals/llm/` | AI Memory with `--llm`, model bridge | AI Memory consolidates each journey's sessions with a real model; corrections and decisions survive; other journeys stay out. |
+| Behavior | `mirror-pi/evals/behavior/` | AI Memory with `--llm`, model bridge, real chat model | The real model records explicit corrections once, recalls them in a later session, saves journals only on request, keeps the journey boundary, refuses identity edits, and answers in the user's language. Results go to `mirror-pi/evals/results/runs/`. |
+| Reflective quality | planned | Real model and blind graders | Usefulness of reflections on synthetic scenarios, graded blind against a rubric. |
 
 ## Rules
 
@@ -21,7 +23,12 @@ Evals define what "working as intended" means. Each one states a behavior and fa
 
 ```sh
 pnpm check
-scripts/ai-memory.sh up
+scripts/ai-memory.sh up --llm
+scripts/model-bridge.sh start
 pnpm test:integration
 pnpm test:mutants
+pnpm test:llm
+pnpm test:behavior          # MIRROR_EVAL_REPEAT=3 for repeated runs
 ```
+
+Behavior evals check observable actions with fixed patterns. A pass shows the behavior happened in that run. Model answers vary, so repeat runs before trusting a change in behavior.

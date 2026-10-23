@@ -12,6 +12,17 @@ Mirror is Pi plus a small extension. There is no Mirror server and no Mirror dat
 | Journal entries and corrections | Vault file first, then a published AI Memory page | The vault file is the human-editable record. The page makes it recallable. |
 | How the mirror answers | `mirror-pi/prompts/mirror-mode.md` | Replaces Pi's coding-agent system prompt. |
 
+## Consolidation with your Pi models
+
+`scripts/ai-memory.sh up --llm` configures AI Memory to consolidate each session at its end through `dev/pi-model-bridge`.
+The bridge is a local OpenAI-compatible endpoint on 127.0.0.1 that answers with Pi's model runtime and your existing Pi authentication file.
+It requires a bearer token from `dev/ai-memory/.env`. No provider credential is copied into AI Memory.
+The model is `consolidation` in `config/dev.json`. Improvement proposals require approval (`AI_MEMORY_AUTO_IMPROVE__REQUIRE_APPROVAL=true`).
+
+```text
+AI Memory container ──HTTP──> host.docker.internal:49391 (bridge) ──Pi ModelRuntime──> provider
+```
+
 ## Session lifecycle
 
 ```text
@@ -55,7 +66,7 @@ session_shutdown
 
 - Capture is in memory. Events not delivered before the process exits are lost. AI Memory's spool is not used.
 - Assistant replies are not captured. AI Memory consolidates from user prompts and explicit records.
-- Without an LLM provider, AI Memory writes rule-based session summaries. LLM consolidation needs a provider (see the model bridge in the backlog).
+- Without `--llm`, AI Memory writes rule-based session summaries only.
 - Pinned corrections are returned for every query, up to the query limit. Many corrections will crowd out other notes.
 - Recall uses the first 400 characters of the prompt.
 - Explorer, Soul, tasks, attachment search, and identity proposals are not implemented.

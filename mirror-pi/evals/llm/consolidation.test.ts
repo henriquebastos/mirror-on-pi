@@ -18,7 +18,7 @@ async function converse(content: string, journey: string, prompts: readonly stri
   const session = await openMirrorSession({
     contentDir: content, workspace: memory.workspace, journey, client: memory.client,
     sessionManager: SessionManager.inMemory(content),
-    responses: responses ?? prompts.map(() => fauxAssistantMessage("I hear you.")),
+    model: { kind: "scripted", responses: responses ?? prompts.map(() => fauxAssistantMessage("I hear you.")) },
   });
   const id = session.session.sessionManager.getSessionId();
   for (const prompt of prompts) await session.session.prompt(prompt);

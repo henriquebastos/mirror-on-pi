@@ -7,7 +7,8 @@ It reads your identity and journeys from a Markdown vault, remembers across sess
 
 ```sh
 pnpm install
-scripts/ai-memory.sh up        # local development AI Memory on 127.0.0.1:49390
+scripts/ai-memory.sh up --llm  # local development AI Memory on 127.0.0.1:49390
+scripts/model-bridge.sh start  # lets AI Memory consolidate with your Pi models
 bin/mirror doctor
 bin/mirror journeys
 bin/mirror start health        # new session in the health journey
@@ -37,6 +38,8 @@ You can have many sessions per journey. They share the journey's AI Memory proje
 pnpm check                 # types, lint, contract evals
 pnpm test:integration      # real Pi sessions against the local AI Memory
 pnpm test:mutants          # break each guarantee and require the evals to fail
+pnpm test:llm              # AI Memory consolidation with a real model
+pnpm test:behavior         # the real chat model's observable behavior
 ```
 
 The starter content in `content/` is synthetic. See [NOTICE.md](NOTICE.md) for attribution.

@@ -47,11 +47,11 @@ test("separate sessions of one journey share memory: a correction from session 1
   const first = await openMirrorSession({
     contentDir: content, workspace: memory.workspace, journey: "health", client: memory.client,
     sessionManager: SessionManager.create(content, dir),
-    responses: [
+    model: { kind: "scripted", responses: [
       reply("Tell me more about those Tuesday calls."),
       callTool("mirror_record_correction", { topic: "Late work calls day", previous: "The late work calls are on Tuesdays", corrected: "The late work calls are on Wednesdays" }),
       reply("Recorded: Wednesdays, not Tuesdays."),
-    ],
+    ] },
   });
   const firstId = first.session.sessionManager.getSessionId();
   await first.session.prompt("I sleep badly since the late work calls started on Tuesdays.");
@@ -76,7 +76,7 @@ test("separate sessions of one journey share memory: a correction from session 1
   const second = await openMirrorSession({
     contentDir: content, workspace: memory.workspace, journey: "health", client: memory.client,
     sessionManager: SessionManager.create(content, dir),
-    responses: [observe(seen, "Your calls are on Wednesdays.")],
+    model: { kind: "scripted", responses: [observe(seen, "Your calls are on Wednesdays.")] },
   });
   assert.notEqual(second.session.sessionManager.getSessionId(), firstId);
   await second.session.prompt("Which day are the late work calls?");
@@ -94,7 +94,7 @@ test("a session of another journey captures into its own project only", async ()
   const session = await openMirrorSession({
     contentDir: content, workspace: memory.workspace, journey: "career", client: memory.client,
     sessionManager: SessionManager.inMemory(content),
-    responses: [reply("What draws you to teaching?")],
+    model: { kind: "scripted", responses: [reply("What draws you to teaching?")] },
   });
   const id = session.session.sessionManager.getSessionId();
   await session.session.prompt(`I keep thinking about teaching. Marker ${token}.`);
@@ -114,7 +114,7 @@ test("a session bound to one journey cannot be resumed under another journey", a
   const original = await openMirrorSession({
     contentDir: content, workspace: memory.workspace, journey: "health", client: memory.client,
     sessionManager: SessionManager.create(content, dir),
-    responses: [reply("Noted.")],
+    model: { kind: "scripted", responses: [reply("Noted.")] },
   });
   await original.session.prompt("Evening walks help.");
   const file = original.session.sessionManager.getSessionFile();
@@ -126,7 +126,7 @@ test("a session bound to one journey cannot be resumed under another journey", a
   const wrong = await openMirrorSession({
     contentDir: content, workspace: memory.workspace, journey: "career", client: memory.client,
     sessionManager: SessionManager.open(file, dir),
-    responses: [observe(seen, "should not run")],
+    model: { kind: "scripted", responses: [observe(seen, "should not run")] },
   });
   await wrong.session.prompt("Now about my career.");
   await wrong.close();
@@ -142,12 +142,12 @@ test("journal entries are saved to the vault and published; file tools stay insi
   const session = await openMirrorSession({
     contentDir: content, workspace: memory.workspace, journey: "health", client: memory.client,
     sessionManager: SessionManager.inMemory(content),
-    responses: [
+    model: { kind: "scripted", responses: [
       callTool("mirror_save_journal", { title: "Quiet evening", body: "No screens after nine. Slept at eleven." }),
       callTool("read", { path: "../../../../etc/hosts" }),
       callTool("read", { path: "journeys/health/journey.md" }),
       observe(seen, "Saved."),
-    ],
+    ] },
   });
   await session.session.prompt("Please save a journal entry: no screens after nine, slept at eleven.");
   await session.close();
@@ -169,7 +169,7 @@ test("an unreachable AI Memory degrades to an explicit notice and does not block
   const session = await openMirrorSession({
     contentDir: content, workspace: memory.workspace, journey: "health", client: offline,
     sessionManager: SessionManager.inMemory(content),
-    responses: [observe(seen, "I cannot read your memory right now.")],
+    model: { kind: "scripted", responses: [observe(seen, "I cannot read your memory right now.")] },
   });
   const started = Date.now();
   await session.session.prompt("What did we discuss last week?");
