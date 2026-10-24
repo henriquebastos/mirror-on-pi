@@ -9,7 +9,6 @@ Evals define what "working as intended" means. Each one states a behavior and fa
 | Negative controls | `mirror-pi/evals/mutants.ts` | Both of the above | Each listed guarantee is broken in turn and the evals must fail. |
 | Behavior | `mirror-pi/evals/behavior/` | Real chat model | The real model reads the identity files before its first answer, records explicit corrections once, finds them in a later session by searching the journey's sessions, saves journals only on request, keeps the journey boundary, refuses identity edits, answers in the user's language, and follows Soul Mode from entry to an integration that changes identity only after the user agrees, with the exact proposed text. Results go to `mirror-pi/evals/results/runs/`. |
 | Memory strategies | Commit `545de28`, `mirror-pi/evals/experiments/memory/` | See [memory-strategies.md](memory-strategies.md) | The comparison that chose Pi's session files over AI Memory. Its code was removed with AI Memory. |
-| Reflective quality | planned | Real model and blind graders | Usefulness of reflections on synthetic scenarios, graded blind against a rubric. |
 
 ## Rules
 
