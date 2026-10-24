@@ -22,7 +22,6 @@ fi
 
 cat <<MSG
 
-Start a session in a journey directory:
-  cd "$vault/journeys/health"
+Start a session at the vault root, from any directory:
   "$root/scripts/dev-pi.sh"
 MSG
