@@ -20,3 +20,4 @@ dev/pi-agent/*
 !dev/pi-agent/extensions/
 dev/pi-agent/extensions/*
 !dev/pi-agent/extensions/ai-memory-pi.ts
+mirror-pi/evals/results/memory/

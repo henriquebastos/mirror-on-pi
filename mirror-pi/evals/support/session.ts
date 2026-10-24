@@ -5,7 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { fauxProvider, type Api, type FauxResponseStep, type Model } from "@earendil-works/pi-ai";
-import { createAgentSession, DefaultResourceLoader, ModelRuntime, SettingsManager, type AgentSession, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import { createAgentSession, DefaultResourceLoader, ModelRuntime, SettingsManager, type AgentSession, type ExtensionFactory, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { SessionManager } from "@earendil-works/pi-coding-agent";
 import { createCorrectionsExtension } from "../../extensions/corrections.ts";
 import { createIdentityExtension } from "../../extensions/identity.ts";
@@ -32,6 +32,8 @@ export type MirrorSessionOptions = {
   readonly now?: () => Date;
   // An interactive user who answers confirmation dialogs. Without it, the session has no UI, as in `pi -p`.
   readonly confirm?: (title: string, message: string) => Promise<boolean>;
+  // Which extensions load. "all" is a development session. The others serve experiments that isolate one part.
+  readonly extensions?: "all" | "capture" | "recall" | "none";
 };
 
 export type MirrorSession = {
@@ -51,13 +53,7 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
     skillsOverride: (base) => ({ skills: base.skills.filter((skill) => !skill.filePath.startsWith(homedir() + sep)), diagnostics: base.diagnostics }),
     noPromptTemplates: true,
     noThemes: true,
-    additionalExtensionPaths: [AI_MEMORY_EXTENSION],
-    extensionFactories: [
-      createRecallExtension(options.client),
-      createJournalExtension(options.client, now),
-      createCorrectionsExtension(options.client, now),
-      createIdentityExtension(now),
-    ],
+    ...extensionsFor(options.extensions ?? "all", options.client, now),
   });
   await loader.reload();
   const { session } = await createAgentSession({
@@ -78,6 +74,24 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
       session.dispose();
     },
   };
+}
+
+function extensionsFor(choice: "all" | "capture" | "recall" | "none", client: MemoryClient, now: () => Date): { additionalExtensionPaths: string[]; extensionFactories: ExtensionFactory[] } {
+  switch (choice) {
+    case "all":
+      return {
+        additionalExtensionPaths: [AI_MEMORY_EXTENSION],
+        extensionFactories: [createRecallExtension(client), createJournalExtension(client, now), createCorrectionsExtension(client, now), createIdentityExtension(now)],
+      };
+    case "capture":
+      return { additionalExtensionPaths: [AI_MEMORY_EXTENSION], extensionFactories: [] };
+    case "recall":
+      return { additionalExtensionPaths: [], extensionFactories: [createRecallExtension(client)] };
+    case "none":
+      return { additionalExtensionPaths: [], extensionFactories: [] };
+    default:
+      return assertNever(choice);
+  }
 }
 
 // A UI that answers confirmation dialogs and ignores every other UI call.

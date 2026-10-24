@@ -1,6 +1,7 @@
 // A local OpenAI-compatible endpoint that answers with your existing Pi authentication.
 // AI Memory uses it for consolidation, so no provider credential is copied into AI Memory.
 // It listens on 127.0.0.1 only and requires a bearer token.
+import { appendFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { Api, AssistantMessage, Context, Model } from "@earendil-works/pi-ai";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
@@ -15,6 +16,8 @@ export type BridgeOptions = {
   readonly modelId: string;
   readonly authPath: string;
   readonly modelsPath: string;
+  // One JSON line per completion with its token usage and cost, so consolidation cost can be measured.
+  readonly usageLog?: string;
 };
 
 export type Completer = (model: Model<Api>, context: Context, maxTokens: number | undefined) => Promise<AssistantMessage>;
@@ -26,8 +29,15 @@ export async function startBridge(options: BridgeOptions): Promise<RunningBridge
   const model = runtime.getModel(options.provider, options.modelId);
   if (model === undefined) throw new Error(`Unknown model ${options.provider}/${options.modelId}`);
   // No reasoning option: Pi then sends no thinking request, which suits strict JSON consolidation.
-  const complete: Completer = (selected, context, maxTokens) =>
-    runtime.completeSimple(selected, context, maxTokens === undefined ? {} : { maxTokens });
+  const usageLog = options.usageLog;
+  const complete: Completer = async (selected, context, maxTokens) => {
+    const answer = await runtime.completeSimple(selected, context, maxTokens === undefined ? {} : { maxTokens });
+    if (usageLog !== undefined) {
+      const line = { at: new Date().toISOString(), model: `${selected.provider}/${selected.id}`, usage: answer.usage };
+      await appendFile(usageLog, `${JSON.stringify(line)}\n`);
+    }
+    return answer;
+  };
   return startBridgeWith({ port: options.port, token: options.token, model, complete });
 }
 
