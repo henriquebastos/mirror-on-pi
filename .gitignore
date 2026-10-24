@@ -3,6 +3,9 @@ node_modules/
 dev/ai-memory/data/
 dev/ai-memory/models/
 dev/ai-memory/.env
+# The pinned AI Memory release and its client state (spool, logs) for development sessions.
+dev/ai-memory/cli/
+dev/ai-memory/client/
 mirror-pi/evals/results/runs/
 .DS_Store
 *.log
@@ -14,3 +17,6 @@ content/journeys/*/corrections/
 dev/pi-agent/*
 !dev/pi-agent/settings.json
 !dev/pi-agent/ai-memory.json
+!dev/pi-agent/extensions/
+dev/pi-agent/extensions/*
+!dev/pi-agent/extensions/ai-memory-pi.ts

@@ -1,5 +1,5 @@
 // Negative controls: break one guarantee at a time and require the evals to fail.
-// Each mutant edits one source file in place and always restores it.
+// Each mutant edits one source or vault file in place and always restores it.
 // Usage: node mirror-pi/evals/mutants.ts [--integration]
 import { spawnSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
@@ -34,18 +34,11 @@ const MUTANTS: readonly Mutant[] = [
     suite: CONTRACTS,
   },
   {
-    name: "a session outside a journey still captures into a default project",
-    file: "mirror-pi/extensions/capture.ts",
-    from: "queue = journey === undefined ? undefined : new CaptureQueue(journey.scope,",
-    to: 'queue = new CaptureQueue(journey?.scope ?? { workspace: "mirror", project: "inbox" },',
+    name: "a journey's marker names another journey's project",
+    file: "content/journeys/career/.ai-memory.toml",
+    from: 'project = "career"',
+    to: 'project = "health"',
     suite: INTEGRATION,
-  },
-  {
-    name: "capture forgets unacknowledged events",
-    file: "mirror-pi/src/capture.ts",
-    from: "this.#pending.splice(0, batch.length, ...remaining);",
-    to: "this.#pending.splice(0, batch.length);",
-    suite: CONTRACTS,
   },
   {
     name: "journal overwrites an existing entry",

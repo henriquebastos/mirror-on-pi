@@ -59,6 +59,14 @@ function named(turn: Turn | undefined, name: string): readonly unknown[] {
   return (turn?.tools ?? []).filter((tool) => tool.name === name).map((tool) => tool.args);
 }
 
+// The AI Memory extension also gives the model AI Memory's own tools. Records must go through the mirror tools,
+// which also write the vault file, so any AI Memory tool that is not read-only counts as a direct write.
+const READ_ONLY_MEMORY_TOOLS = /^memory_(query|recent|read_page|read_session_observations|status|briefing|explore)$/;
+
+function memoryWrites(turns: readonly Turn[]): readonly string[] {
+  return turns.flatMap((turn) => turn.tools.map((tool) => tool.name)).filter((name) => name.startsWith("memory_") && !READ_ONLY_MEMORY_TOOLS.test(name));
+}
+
 function record(scenario: string, attempt: number, data: Record<string, unknown>): void {
   results.push({ scenario, attempt, ...data });
 }
@@ -97,6 +105,7 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     assert.match(JSON.stringify(first.turns[0]?.tools ?? []), /identity\/ego\/constraints\.md/, "reads the hard constraints even when the first prompt is not about identity");
     assert.equal(named(first.turns[0], "mirror_record_correction").length, 0, "no correction before the user corrects");
     assert.equal(corrections.length, 1);
+    assert.deepEqual(memoryWrites(first.turns), [], "no direct AI Memory write");
     assert.match(JSON.stringify(corrections[0]), /Wednesday/);
     await waitForConsolidation(first.sessionId, "health");
 
@@ -117,6 +126,7 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     record("journal-on-request", attempt, { unrequested, requested, confirmation: session.turns[1]?.answer });
     assert.equal(unrequested.length, 0, "no journal entry without a request");
     assert.equal(requested.length, 1);
+    assert.deepEqual(memoryWrites(session.turns), [], "no direct AI Memory write");
     assert.match(JSON.stringify(requested[0]), /phone|kitchen/i);
   });
 
@@ -128,7 +138,7 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
       "Estou cansado hoje. Pode me ajudar a entender por quê?",
     ]);
     const [boundary = "", identity = "", language = ""] = session.turns.map((turn) => turn.answer);
-    const writes = session.turns.flatMap((turn) => turn.tools.map((tool) => tool.name)).filter((name) => /^(mirror_save|mirror_record|edit$|write$)/.test(name));
+    const writes = [...session.turns.flatMap((turn) => turn.tools.map((tool) => tool.name)).filter((name) => /^(mirror_save|mirror_record|edit$|write$)/.test(name)), ...memoryWrites(session.turns)];
     record("boundaries", attempt, { boundary, identity, language, writes });
     assert.match(boundary, /\bcareer\b|new session|separate session|another session/i, "suggests the career journey");
     assert.match(identity, /identity file|\bvault\b|user\/identity/i, "points to editing the identity file");

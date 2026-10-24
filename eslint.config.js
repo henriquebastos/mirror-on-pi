@@ -3,7 +3,8 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["node_modules/**", ".scratch/**", "dev/ai-memory/data/**", "eslint.config.js"] },
+  // dev/pi-agent/extensions holds the generated AI Memory extension. It is vendored as generated and not edited.
+  { ignores: ["node_modules/**", ".scratch/**", "dev/ai-memory/**", "dev/pi-agent/extensions/**", "eslint.config.js"] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,

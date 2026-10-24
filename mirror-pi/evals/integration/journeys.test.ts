@@ -10,7 +10,7 @@ import type { TranscriptContext } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { MemoryClient } from "../../src/memory-client.ts";
 import { tempVault } from "../support/content.ts";
-import { devMemory, observations } from "../support/memory.ts";
+import { devMemory, observations, observationsWith } from "../support/memory.ts";
 import { openMirrorSession } from "../support/session.ts";
 
 const memory = await devMemory();
@@ -65,7 +65,7 @@ test("separate sessions of one journey share memory: a correction from session 1
   assert.ok(page.ok, page.ok ? "" : page.error.message);
   assert.match(page.value.body, /Now true:\*\* The late work calls are on Wednesdays/);
 
-  const firstObservations = await observations(memory.client, health, firstId);
+  const firstObservations = await observationsWith(memory.client, health, firstId, "session-end");
   const prompts = firstObservations.filter((row) => row.kind === "user-prompt").map((row) => row.body);
   assert.deepEqual(prompts, [
     "I sleep badly since the late work calls started on Tuesdays.",
@@ -124,7 +124,9 @@ test("a session of another journey captures into its own project only", async ()
   assert.ok(!JSON.stringify(leaked.value).includes(token));
 });
 
-test("a session outside a journey directory captures nothing and cannot save records", async () => {
+// Outside a journey there is no marker. Mirror's extensions then make no AI Memory call. The AI Memory extension
+// still captures, as personal Pi does in denylist mode, but into its default scope, never into a journey.
+test("a session outside a journey directory reaches no journey's memory and cannot save records", async () => {
   const vault = await tempVault(memory.workspace);
   const seen: TranscriptContext[] = [];
   const calls: string[] = [];
@@ -140,10 +142,13 @@ test("a session outside a journey directory captures nothing and cannot save rec
       observe(seen, "I could not save it."),
     ] },
   });
+  const id = session.session.sessionManager.getSessionId();
   await session.session.prompt("Save a journal entry: not in a journey.");
   await session.close();
   assert.match(messagesText(seen[0]), /not in a journey directory/);
-  assert.deepEqual(calls, [], "no capture, recall, or record reaches AI Memory");
+  assert.deepEqual(calls, [], "Mirror's recall and records make no AI Memory call");
+  assert.deepEqual(await observations(memory.client, health, id), [], "nothing is captured into the health journey");
+  assert.deepEqual(await observations(memory.client, career, id), [], "nothing is captured into the career journey");
 });
 
 test("journal entries are saved in the journey directory and published to its project", async () => {

@@ -1,17 +1,20 @@
 // Run a real Pi SDK session in a journey directory with Mirror's extensions, as a manual session would.
-// Pi loads the vault's AGENTS.md files itself. Only the model and the AI Memory client are chosen by the eval.
+// Pi loads the vault's AGENTS.md files itself. Capture is the generated AI Memory extension that development
+// sessions load from dev/pi-agent/extensions. Only the model and the client of Mirror's own extensions are chosen by the eval.
 import { mkdtemp } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxProvider, type Api, type FauxResponseStep, type Model } from "@earendil-works/pi-ai";
 import { createAgentSession, DefaultResourceLoader, ModelRuntime, SettingsManager, type AgentSession } from "@earendil-works/pi-coding-agent";
 import type { SessionManager } from "@earendil-works/pi-coding-agent";
-import { createCaptureExtension } from "../../extensions/capture.ts";
 import { createCorrectionsExtension } from "../../extensions/corrections.ts";
 import { createJournalExtension } from "../../extensions/journal.ts";
 import { createRecallExtension } from "../../extensions/recall.ts";
 import type { MemoryClient } from "../../src/memory-client.ts";
 import { assertNever } from "../../src/result.ts";
+import { DEV_AGENT_DIR } from "./memory.ts";
+
+export const AI_MEMORY_EXTENSION = join(DEV_AGENT_DIR, "extensions", "ai-memory-pi.ts");
 
 type ThinkingLevel = NonNullable<NonNullable<Parameters<typeof createAgentSession>[0]>["thinkingLevel"]>;
 
@@ -44,8 +47,8 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
     noSkills: true,
     noPromptTemplates: true,
     noThemes: true,
+    additionalExtensionPaths: [AI_MEMORY_EXTENSION],
     extensionFactories: [
-      createCaptureExtension(options.client),
       createRecallExtension(options.client),
       createJournalExtension(options.client, now),
       createCorrectionsExtension(options.client, now),

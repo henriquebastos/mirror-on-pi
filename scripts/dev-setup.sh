@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Prepare manual development sessions. Run once; run with --reset to replace the development vault.
 # - Links dev/pi-agent/auth.json to your personal Pi auth file. No other file is shared.
+# - Generates the AI Memory Pi extension in dev/pi-agent/extensions when it is missing (scripts/ai-memory-extension.sh).
 # - Copies the synthetic vault to ~/.local/state/mirror/vault-dev, outside this repository,
 #   so this repository's AGENTS.md does not load into Mirror sessions.
 set -euo pipefail
@@ -13,6 +14,10 @@ vault="${MIRROR_DEV_VAULT:-$HOME/.local/state/mirror/vault-dev}"
 if [[ ! -e "$agent_dir/auth.json" && ! -L "$agent_dir/auth.json" ]]; then
   ln -s "$personal_auth" "$agent_dir/auth.json"
   echo "linked $agent_dir/auth.json -> $personal_auth"
+fi
+
+if [[ ! -f "$agent_dir/extensions/ai-memory-pi.ts" ]]; then
+  "$root/scripts/ai-memory-extension.sh"
 fi
 
 if [[ "${1:-}" == "--reset" && -d "$vault" ]]; then
@@ -29,5 +34,5 @@ cat <<MSG
 
 Start a session in a journey directory:
   cd "$vault/journeys/health"
-  PI_CODING_AGENT_DIR="$agent_dir" "$root/node_modules/.bin/pi"
+  "$root/scripts/dev-pi.sh"
 MSG

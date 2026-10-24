@@ -1,4 +1,4 @@
-// Talk to AI Memory over its public HTTP interfaces: MCP tools and lifecycle hook batches.
+// Talk to AI Memory over its MCP interface.
 // Every call names its workspace and project explicitly. Nothing relies on server defaults.
 import { isRecord, numberField, parseJson, stringField, type JsonRecord } from "./json.ts";
 import { err, ok, type Result } from "./result.ts";
@@ -31,13 +31,6 @@ export type PageInput = {
 export type MemoryPage = { readonly path: string; readonly body: string; readonly frontmatter: JsonRecord };
 
 export type WrittenPage = { readonly pageId: string; readonly path: string };
-
-export type HookItem = { readonly url: string; readonly body: JsonRecord };
-
-export type HookReceipt = {
-  readonly acknowledged: readonly number[];
-  readonly outcomes: ReadonlyMap<number, string>;
-};
 
 export type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
@@ -114,12 +107,6 @@ export class MemoryClient {
     return parseToolResponse(response.value, name);
   }
 
-  async deliverHooks(items: readonly HookItem[], signal?: AbortSignal): Promise<Result<HookReceipt, MemoryError>> {
-    const response = await this.#post("/hook/batch", items, signal);
-    if (!response.ok) return response;
-    return parseHookReceipt(response.value, items.length);
-  }
-
   async #post(path: string, body: unknown, signal: AbortSignal | undefined): Promise<Result<unknown, MemoryError>> {
     const headers: Record<string, string> = { "Content-Type": "application/json", Accept: "application/json, text/event-stream" };
     if (this.#token !== undefined) headers.Authorization = `Bearer ${this.#token}`;
@@ -194,27 +181,6 @@ export function parseHits(result: JsonRecord): Result<readonly QueryHit[], Memor
     parsed.push({ path, title: stringField(hit, "title") ?? path, snippet: cleanSnippet(stringField(hit, "snippet") ?? "") });
   }
   return ok(parsed);
-}
-
-export function parseHookReceipt(payload: unknown, count: number): Result<HookReceipt, MemoryError> {
-  if (!isRecord(payload)) return err({ kind: "protocol", message: "hook batch response is not an object" });
-  const outcomes = new Map<number, string>();
-  if (Array.isArray(payload.results)) {
-    for (const entry of payload.results) {
-      if (!isRecord(entry)) continue;
-      const index = numberField(entry, "index");
-      const outcome = stringField(entry, "outcome");
-      if (index !== undefined && outcome !== undefined) outcomes.set(index, outcome);
-    }
-  }
-  const indices = payload.accepted_indices;
-  if (Array.isArray(indices)) {
-    const acknowledged = indices.filter((value): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0 && value < count);
-    return ok({ acknowledged, outcomes });
-  }
-  const accepted = numberField(payload, "accepted") ?? 0;
-  const prefix = Math.max(0, Math.min(count, Math.trunc(accepted)));
-  return ok({ acknowledged: Array.from({ length: prefix }, (_, index) => index), outcomes });
 }
 
 function firstText(content: unknown): string | undefined {

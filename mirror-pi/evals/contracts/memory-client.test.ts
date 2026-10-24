@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MemoryClient, parseHookReceipt, parseToolResponse, stripEventStream } from "../../src/memory-client.ts";
+import { MemoryClient, parseToolResponse, stripEventStream } from "../../src/memory-client.ts";
 
 function client(respond: (body: unknown) => Response): { client: MemoryClient; requests: { url: string; headers: Headers; body: unknown }[] } {
   const requests: { url: string; headers: Headers; body: unknown }[] = [];
@@ -41,17 +41,4 @@ test("JSON-RPC errors, tool errors, HTTP errors, and network errors are values",
 test("event-stream framing is removed before JSON parsing", () => {
   assert.equal(stripEventStream('event: message\ndata: {"a":1}\n\n'), '{"a":1}');
   assert.equal(stripEventStream('{"a":1}'), '{"a":1}');
-});
-
-test("hook receipts prefer explicit indices and otherwise use the acknowledged prefix", () => {
-  const indexed = parseHookReceipt({ accepted_indices: [0, 2, 9], results: [{ index: 0, outcome: "stored" }] }, 3);
-  assert.ok(indexed.ok);
-  assert.deepEqual(indexed.value.acknowledged, [0, 2]);
-  assert.equal(indexed.value.outcomes.get(0), "stored");
-  const prefix = parseHookReceipt({ accepted: 2 }, 3);
-  assert.ok(prefix.ok);
-  assert.deepEqual(prefix.value.acknowledged, [0, 1]);
-  const none = parseHookReceipt({}, 3);
-  assert.ok(none.ok);
-  assert.deepEqual(none.value.acknowledged, []);
 });

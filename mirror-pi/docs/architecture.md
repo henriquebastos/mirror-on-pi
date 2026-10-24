@@ -1,6 +1,6 @@
 # Architecture
 
-Mirror is plain Pi in a Markdown vault, plus a few small extensions. There is no launcher, no Mirror server, and no Mirror database.
+Mirror is plain Pi in a Markdown vault, plus the AI Memory Pi extension and a few small Mirror extensions. There is no launcher, no Mirror server, and no Mirror database.
 
 ## Responsibilities
 
@@ -10,24 +10,31 @@ Mirror is plain Pi in a Markdown vault, plus a few small extensions. There is no
 | Identity | `content/identity/` | Markdown read by the model with Pi's `read` tool. Nothing composes or injects it. |
 | A journey | `content/journeys/<slug>/` | The directory is the journey. Its `AGENTS.md` holds the journey context. Its `.ai-memory.toml` names the AI Memory scope. |
 | Conversation history | Pi session files | Pi keeps sessions per working directory, so each journey directory has its own sessions. |
-| Capture | `mirror-pi/extensions/capture.ts` | Development stand-in for the personal AI Memory Pi extension. Routes by `.ai-memory.toml`. |
+| Capture | The AI Memory Pi extension | The same generated extension as personal Pi, from the same pinned release, pointed at the local AI Memory. Routes by `.ai-memory.toml`. Also gives the model AI Memory's `memory_*` tools. |
 | Recall | `mirror-pi/extensions/recall.ts` | Adds the journey's matching memory before each prompt. Adds the `mirror_recall` tool. |
 | Journal entries | `mirror-pi/extensions/journal.ts` | `mirror_save_journal`: a vault file in `journal/`, then a published AI Memory page. |
 | Corrections | `mirror-pi/extensions/corrections.ts` | `mirror_record_correction`: a vault file in `corrections/`, then a pinned AI Memory page. |
 | Consolidation | AI Memory | One project per journey, in the workspace from `.ai-memory.toml`. |
 
-Each extension does one thing and works without the others. Shared code is in `mirror-pi/src/`.
-The extensions read the AI Memory address from `ai-memory.json` in the Pi agent directory. Without it, they only warn.
+Each Mirror extension does one thing and works without the others. Shared code is in `mirror-pi/src/`.
+Mirror's extensions read the AI Memory address from `ai-memory.json` in the Pi agent directory. Without it, they only warn.
+The AI Memory extension has its server address in the file and reads `AI_MEMORY_AUTH_TOKEN` and `AI_MEMORY_DATA_DIR` from the environment.
 
 ## Development setup
 
 ```text
 dev/pi-agent/                 PI_CODING_AGENT_DIR for manual sessions
-  settings.json               model and the four extensions (tracked)
-  ai-memory.json              local AI Memory address and token file (tracked)
+  settings.json               model and the three Mirror extensions (tracked)
+  ai-memory.json              local AI Memory address and token file for Mirror's extensions (tracked)
+  extensions/ai-memory-pi.ts  generated AI Memory extension; Pi loads it from here (tracked, scripts/ai-memory-extension.sh)
   auth.json -> ~/.pi/agent/auth.json   (scripts/dev-setup.sh)
+dev/ai-memory/cli/            the pinned AI Memory release that generates the extension (ignored)
+dev/ai-memory/client/         AI_MEMORY_DATA_DIR of development sessions: spool and logs (ignored)
 ~/.local/state/mirror/vault-dev/       copy of content/ (scripts/dev-setup.sh)
 ```
+
+`scripts/ai-memory-extension.sh` uses the release and options that the dotfiles' `scripts/setup-ai-memory` uses for personal Pi, and checks that the result differs from the personal extension only in the server address.
+`scripts/dev-pi.sh` runs `pi` with development values for `PI_CODING_AGENT_DIR`, `AI_MEMORY_AUTH_TOKEN`, and `AI_MEMORY_DATA_DIR`. Without them, the extension would send the personal token to the local AI Memory and use the personal spool.
 
 The development vault is a copy outside this repository. Otherwise Pi would also load this repository's `AGENTS.md` into Mirror sessions.
 The separate agent directory keeps personal Pi settings, extensions, and the production AI Memory out of development sessions.
@@ -43,14 +50,17 @@ first answer
   └─ the model reads identity/ files as AGENTS.md instructs
 
 each user prompt
-  ├─ capture: send the prompt to the journey's AI Memory project
+  ├─ AI Memory extension: send the prompt to the journey's AI Memory project
   └─ recall: query the project; add the results as a hidden context message
 
+each tool call and answer end
+  └─ AI Memory extension: send the tool call, its output, and a stop event
+
 session end
-  └─ capture: send session-end and flush (AI Memory then writes a session summary page)
+  └─ AI Memory extension: send session-end and drain for up to 2 s (AI Memory then writes a session summary page)
 ```
 
-A session outside a journey directory gets no capture, no recall, and no records.
+A session outside a journey directory gets no recall and no records. The AI Memory extension still captures it, as personal Pi does, into AI Memory's default scope for that directory, never into a journey.
 
 ## Consolidation with your Pi models
 
@@ -68,10 +78,9 @@ AI Memory container ──HTTP──> host.docker.internal:49391 (bridge) ──
 | Guarantee | Mechanism | Eval |
 |---|---|---|
 | A session uses the journey of its directory | The nearest `.ai-memory.toml` at or above the working directory. An incomplete marker is an error, not a default. | `journey.test.ts` |
-| Capture goes only to the journey's project | Every hook event names workspace and project explicitly. | integration "captures into its own project only" |
-| Nothing outside a journey reaches AI Memory | Without a marker, capture and recall stay off and record tools refuse. | integration "outside a journey directory" |
+| Capture goes only to the journey's project | The AI Memory extension sends the marker's workspace and project with every event. | integration "captures into its own project only", mutant on the career marker |
+| Nothing outside a journey reaches a journey's memory | Without a marker, Mirror's extensions make no AI Memory call and record tools refuse. The AI Memory extension captures into its default scope. | integration "outside a journey directory" |
 | Mirror's instructions load in every journey | Pi's own context-file discovery. | integration "Pi loads Mirror's instructions" |
-| Undelivered events are retried without duplicates | In-memory queue keeps unacknowledged events with their ingest keys. | `capture.test.ts` |
 | Records never overwrite | Exclusive file creation and `create_only` pages. When a name is free in the vault but taken in AI Memory, both move to the next name. | `records.test.ts` |
 | Memory failure is visible | The context message states that memory is unavailable. Records report a failed publication. | integration "unreachable AI Memory" |
 
@@ -82,8 +91,10 @@ Behavior that depends on the model, such as reading the identity, recording corr
 - The model must read the identity files itself. The behavior evals check that it does. If it stops doing so, the smallest fix is an extension that adds the files to the system prompt.
 - Pi's default system prompt describes a coding assistant. `content/AGENTS.md` replaces that role in words only.
 - The model has Pi's default tools, including `bash`, `edit`, and `write`. Nothing stops it from editing identity files except the instructions.
-- Capture is in memory. Events not delivered before the process exits are lost. AI Memory's spool is not used.
-- Assistant replies are not captured. AI Memory consolidates from user prompts and explicit records.
+- Capture behaves as the AI Memory extension does in personal Pi: failed events go to the spool in `AI_MEMORY_DATA_DIR`, and at most 100 events wait in memory.
+- The AI Memory extension can deliver the last event just after `session_shutdown` returns. A real `pi` process waits for it. The in-process evals poll for it.
+- The model also has AI Memory's `memory_*` tools, including writes such as `memory_write_page` and `memory_delete_page`. The instructions and behavior evals keep records on the mirror tools.
+- Assistant replies are not captured. AI Memory consolidates from user prompts, tool calls and their output, and explicit records.
 - Without `--llm`, AI Memory writes rule-based session summaries only.
 - Pinned corrections are returned for every query, up to the query limit. Many corrections will crowd out other notes.
 - Recall uses the first 400 characters of the prompt.
