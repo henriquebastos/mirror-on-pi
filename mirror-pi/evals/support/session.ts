@@ -3,11 +3,12 @@
 // sessions load from dev/pi-agent/extensions. Only the model and the client of Mirror's own extensions are chosen by the eval.
 import { mkdtemp } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { fauxProvider, type Api, type FauxResponseStep, type Model } from "@earendil-works/pi-ai";
-import { createAgentSession, DefaultResourceLoader, ModelRuntime, SettingsManager, type AgentSession } from "@earendil-works/pi-coding-agent";
+import { createAgentSession, DefaultResourceLoader, ModelRuntime, SettingsManager, type AgentSession, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { SessionManager } from "@earendil-works/pi-coding-agent";
 import { createCorrectionsExtension } from "../../extensions/corrections.ts";
+import { createIdentityExtension } from "../../extensions/identity.ts";
 import { createJournalExtension } from "../../extensions/journal.ts";
 import { createRecallExtension } from "../../extensions/recall.ts";
 import type { MemoryClient } from "../../src/memory-client.ts";
@@ -29,6 +30,8 @@ export type MirrorSessionOptions = {
   readonly model: EvalModel;
   readonly sessionManager: SessionManager;
   readonly now?: () => Date;
+  // An interactive user who answers confirmation dialogs. Without it, the session has no UI, as in `pi -p`.
+  readonly confirm?: (title: string, message: string) => Promise<boolean>;
 };
 
 export type MirrorSession = {
@@ -44,7 +47,8 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
     cwd: options.cwd,
     agentDir,
     noExtensions: true,
-    noSkills: true,
+    // Pi discovers skills as in a manual session, including the vault's `.agents/skills`. Personal skills under the home directory are left out.
+    skillsOverride: (base) => ({ skills: base.skills.filter((skill) => !skill.filePath.startsWith(homedir() + sep)), diagnostics: base.diagnostics }),
     noPromptTemplates: true,
     noThemes: true,
     additionalExtensionPaths: [AI_MEMORY_EXTENSION],
@@ -52,6 +56,7 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
       createRecallExtension(options.client),
       createJournalExtension(options.client, now),
       createCorrectionsExtension(options.client, now),
+      createIdentityExtension(now),
     ],
   });
   await loader.reload();
@@ -65,7 +70,7 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
     sessionManager: options.sessionManager,
     settingsManager: SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: false } }),
   });
-  await session.bindExtensions({});
+  await session.bindExtensions(options.confirm === undefined ? {} : { uiContext: confirmingUI(options.confirm) });
   return {
     session,
     close: async () => {
@@ -73,6 +78,13 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
       session.dispose();
     },
   };
+}
+
+// A UI that answers confirmation dialogs and ignores every other UI call.
+function confirmingUI(confirm: (title: string, message: string) => Promise<boolean>): ExtensionUIContext {
+  const ignore = (): undefined => undefined;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- eval stub: Mirror's tools use only confirm; every other member is a no-op.
+  return new Proxy({}, { get: (_target, key) => (key === "confirm" ? confirm : ignore) }) as ExtensionUIContext;
 }
 
 async function modelFor(choice: EvalModel, agentDir: string): Promise<{ runtime: ModelRuntime; model: Model<Api>; thinkingLevel: ThinkingLevel }> {

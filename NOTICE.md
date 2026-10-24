@@ -1,6 +1,6 @@
 # Notice
 
-Mirror's reflective prompts and starter identity are adapted from Mirror Mind
+Mirror's reflective prompts, Soul Mode skill and voices, and starter identity are adapted from Mirror Mind
 (https://github.com/mirror-mind-ai/mirror), which is distributed under this license:
 
 ```text

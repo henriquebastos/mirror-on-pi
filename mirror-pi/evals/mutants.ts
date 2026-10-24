@@ -55,6 +55,27 @@ const MUTANTS: readonly Mutant[] = [
     suite: CONTRACTS,
   },
   {
+    name: "an identity integration replaces the file instead of appending",
+    file: "mirror-pi/src/identity.ts",
+    from: "appendIntegration(current, target.section, target.bullet)",
+    to: "appendIntegration(\"\", target.section, target.bullet)",
+    suite: CONTRACTS,
+  },
+  {
+    name: "a self integration goes to another layer's section",
+    file: "mirror-pi/src/identity.ts",
+    from: "self: \"New Incorporated Principles\",",
+    to: "self: \"New Operational Patterns Identified\",",
+    suite: CONTRACTS,
+  },
+  {
+    name: "an identity integration is written although the user declined",
+    file: "mirror-pi/extensions/identity.ts",
+    from: "if (!confirmed) {",
+    to: "if (confirmed && !confirmed) {",
+    suite: INTEGRATION,
+  },
+  {
     name: "recalled memory is not given to the model",
     file: "mirror-pi/extensions/recall.ts",
     from: "return content === undefined ? undefined : { message: { customType: MEMORY_CONTEXT_TYPE, content, display: false } };",

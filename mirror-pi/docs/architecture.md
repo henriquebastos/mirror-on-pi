@@ -8,6 +8,8 @@ Mirror is plain Pi in a Markdown vault, plus the AI Memory Pi extension and a fe
 |---|---|---|
 | How the mirror answers | `content/AGENTS.md` | Pi loads it as a context file from every directory below the vault. It tells the model to read the identity files. |
 | Identity | `content/identity/` | Markdown read by the model with Pi's `read` tool. Nothing composes or injects it. |
+| Soul Mode | `content/.agents/skills/soul/` | A Pi skill in the vault: the ritual in `SKILL.md`, one file per voice in `voices/`. Pi finds it from every journey directory. Cards and the fruit live in the conversation. A harvested fruit is saved with `mirror_save_journal`. |
+| Identity integrations | `mirror-pi/extensions/identity.ts` | `mirror_integrate_identity`: after the user confirms the exact text in a dialog, appends a dated bullet to the layer's section (self, shadow, ego, or persona file). |
 | A journey | `content/journeys/<slug>/` | The directory is the journey. Its `AGENTS.md` holds the journey context. Its `.ai-memory.toml` names the AI Memory scope. |
 | Conversation history | Pi session files | Pi keeps sessions per working directory, so each journey directory has its own sessions. |
 | Capture | The AI Memory Pi extension | The same generated extension as personal Pi, from the same pinned release, pointed at the local AI Memory. Routes by `.ai-memory.toml`. Also gives the model AI Memory's `memory_*` tools. |
@@ -24,7 +26,7 @@ The AI Memory extension has its server address in the file and reads `AI_MEMORY_
 
 ```text
 dev/pi-agent/                 PI_CODING_AGENT_DIR for manual sessions
-  settings.json               model and the three Mirror extensions (tracked)
+  settings.json               model and the four Mirror extensions (tracked)
   ai-memory.json              local AI Memory address and token file for Mirror's extensions (tracked)
   extensions/ai-memory-pi.ts  generated AI Memory extension; Pi loads it from here (tracked, scripts/ai-memory-extension.sh)
   auth.json -> ~/.pi/agent/auth.json   (scripts/dev-setup.sh)
@@ -82,15 +84,17 @@ AI Memory container ──HTTP──> host.docker.internal:49391 (bridge) ──
 | Nothing outside a journey reaches a journey's memory | Without a marker, Mirror's extensions make no AI Memory call and record tools refuse. The AI Memory extension captures into its default scope. | integration "outside a journey directory" |
 | Mirror's instructions load in every journey | Pi's own context-file discovery. | integration "Pi loads Mirror's instructions" |
 | Records never overwrite | Exclusive file creation and `create_only` pages. When a name is free in the vault but taken in AI Memory, both move to the next name. | `records.test.ts` |
+| Identity changes only with the user's confirmation | `mirror_integrate_identity` shows the exact text in a dialog and writes only when the user confirms. Without an interactive user, it refuses. | integration "declined dialog", "without an interactive user", mutant that ignores a declined dialog |
+| Integrations append and never replace | The bullet goes at the end of the layer's section; every earlier line stays, in order. | `identity.test.ts`, mutants that replace the file or use another section |
 | Memory failure is visible | The context message states that memory is unavailable. Records report a failed publication. | integration "unreachable AI Memory" |
 
-Behavior that depends on the model, such as reading the identity, recording corrections, or not editing identity files, is checked by the behavior evals, not enforced.
+Behavior that depends on the model, such as reading the identity, recording corrections, following the Soul Mode ritual, or not editing identity files with other tools, is checked by the behavior evals, not enforced.
 
 ## Known limits
 
 - The model must read the identity files itself. The behavior evals check that it does. If it stops doing so, the smallest fix is an extension that adds the files to the system prompt.
 - Pi's default system prompt describes a coding assistant. `content/AGENTS.md` replaces that role in words only.
-- The model has Pi's default tools, including `bash`, `edit`, and `write`. Nothing stops it from editing identity files except the instructions.
+- The model has Pi's default tools, including `bash`, `edit`, and `write`. Only the instructions stop it from editing identity files with them. The confirmation dialog guards only `mirror_integrate_identity`.
 - Capture behaves as the AI Memory extension does in personal Pi: failed events go to the spool in `AI_MEMORY_DATA_DIR`, and at most 100 events wait in memory.
 - The AI Memory extension can deliver the last event just after `session_shutdown` returns. A real `pi` process waits for it. The in-process evals poll for it.
 - The model also has AI Memory's `memory_*` tools, including writes such as `memory_write_page` and `memory_delete_page`. The instructions and behavior evals keep records on the mirror tools.
@@ -98,7 +102,9 @@ Behavior that depends on the model, such as reading the identity, recording corr
 - Without `--llm`, AI Memory writes rule-based session summaries only.
 - Pinned corrections are returned for every query, up to the query limit. Many corrections will crowd out other notes.
 - Recall uses the first 400 characters of the prompt.
-- Explorer, Soul, tasks, attachment search, and identity proposals are not implemented.
+- Soul Mode is instructions only: nothing enforces the ritual's order, and there is no Soul state outside the conversation. A fruit that was not saved is lost when the session ends.
+- Soul Mode does not record integration provenance beyond the bullet's date. Mirror Mind also keeps an audit record with the origin and conversation.
+- Explorer, tasks, and attachment search are not implemented.
 - `--llm` was tested with colima on macOS. On Linux Docker, `host-gateway` is the docker0 address, which cannot reach a bridge bound to 127.0.0.1.
 - Shared skills in `~/.agents/skills` still load into development sessions.
 - `dev/pi-agent/auth.json` is a symbolic link. Pi locks the link path, not its target, so an OAuth refresh in a development session and in personal Pi at the same moment can race. The likely result is a new login.

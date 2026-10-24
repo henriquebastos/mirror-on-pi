@@ -2,7 +2,7 @@
 
 Mirror is a reflective companion that runs as plain Pi sessions in a Markdown vault.
 Each journey is a directory. Pi reads the vault's `AGENTS.md` files and the model reads your identity files.
-The AI Memory Pi extension that personal Pi already uses captures each session. A few small Mirror extensions recall memory and save journal entries and corrections.
+The AI Memory Pi extension that personal Pi already uses captures each session. A few small Mirror extensions recall memory, save journal entries and corrections, and append identity integrations you confirm in Soul Mode.
 
 ## Start (development)
 
@@ -33,7 +33,8 @@ You can have many sessions per journey. They share the journey's AI Memory proje
 | Conversation history | Pi | Sessions per working directory, in the Pi agent directory |
 | Recall and consolidation across sessions | AI Memory | One project per journey |
 | Capture | The AI Memory Pi extension, as in personal Pi | `dev/pi-agent/extensions/ai-memory-pi.ts` (generated) |
-| Recall, journal, corrections | One small Pi extension each | `mirror-pi/extensions/` |
+| Recall, journal, corrections, identity integrations | One small Pi extension each | `mirror-pi/extensions/` |
+| Soul Mode | A Pi skill in the vault | `content/.agents/skills/soul/` |
 
 - `mirror-pi/docs/` — architecture, TypeScript guidelines, and evals.
 - `dev/pi-agent/` — the Pi agent directory for development sessions.

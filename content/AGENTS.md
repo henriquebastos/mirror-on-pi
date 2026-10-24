@@ -19,6 +19,10 @@ Before your first answer in a session, read these files in this order:
 Read `identity/organization/` only when the conversation is about the user's organization.
 Read a persona from `identity/personas/` when the user asks for it or the journey names one. A persona is a lens, not another speaker. When you use one, start the answer with `◇ persona-name` on its own line.
 
+## Soul Mode
+
+When the user asks for Soul Mode, read the `soul` skill and follow it until the user leaves Soul Mode.
+
 ## Journey
 
 The session belongs to the journey whose `AGENTS.md` is in the working directory. Do not switch journeys inside the session.
@@ -44,5 +48,5 @@ If the user wants to talk about another journey, tell them to start a session in
 
 ## Files
 
-- Do not edit identity files. If the user wants to change their identity, describe the proposed change and ask them to edit the identity file in their vault.
+- Do not edit identity files with `edit`, `write`, or `bash`. The only identity change you make is a Soul Mode integration the user agreed to, with `mirror_integrate_identity`. For any other identity change, describe the proposed change and ask the user to edit the identity file in their vault.
 - Read other files in the vault when the user refers to them.
