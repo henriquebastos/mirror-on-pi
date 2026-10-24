@@ -4,15 +4,16 @@ Evals define what "working as intended" means. Each one states a behavior and fa
 
 | Layer | Location | Needs | Proves |
 |---|---|---|---|
-| Contracts | `mirror-pi/evals/contracts/` | Nothing | Pure rules: which directory is a journey, record files, identity integration plans. |
-| Integration | `mirror-pi/evals/integration/` | `jq` and `rg` | Real Pi sessions in a journey directory of a disposable vault, with Mirror's extensions and a scripted model: context-file loading, the session search command from `content/AGENTS.md` (finds the user's words and the mirror's replies of the same journey only, without tool output), records, sessions outside a journey, Soul skill discovery, and identity integration with a confirmed, declined, or missing dialog. |
+| Contracts | `mirror-pi/evals/contracts/` | Nothing | Pure rules: which directory is a journey, record files, identity integration plans, and the vault projection with Git. |
+| Integration | `mirror-pi/evals/integration/` | `jq` and `rg` | Real Pi sessions in a journey directory of a disposable vault, with Mirror's extensions and a scripted model: context-file loading, the session search command from `vault/AGENTS.md` (finds the user's words and the mirror's replies of the same journey only, without tool output), records, sessions outside a journey, Soul skill discovery, and identity integration with a confirmed, declined, or missing dialog. |
 | Negative controls | `mirror-pi/evals/mutants.ts` | Both of the above | Each listed guarantee is broken in turn and the evals must fail. |
 | Behavior | `mirror-pi/evals/behavior/` | Real chat model | The real model reads the identity files before its first answer, records explicit corrections once, finds them in a later session by searching the journey's sessions, saves journals only on request, keeps the journey boundary, refuses identity edits, answers in the user's language, and follows Soul Mode from entry to an integration that changes identity only after the user agrees, with the exact proposed text. Results go to `mirror-pi/evals/results/runs/`. |
 | Memory strategies | Commit `545de28`, `mirror-pi/evals/experiments/memory/` | See [memory-strategies.md](memory-strategies.md) | The comparison that chose Pi's session files over AI Memory. Its code was removed with AI Memory. |
 
 ## Rules
 
-- Use the synthetic starter vault and a disposable copy of it. Never use personal content or personal sessions.
+- Build each disposable vault with the projection (`tempVault()`), as every other vault is built. Never use personal content or personal sessions.
+- Git in eval vaults uses no personal or system Git configuration and a fixed author.
 - Each eval process uses one temporary Pi agent directory and sets `PI_CODING_AGENT_DIR` to it, so sessions and the search command never touch a personal or development agent directory.
 - A scripted model tests wiring, not reflective quality. Do not report scripted runs as quality evidence.
 - Add a mutant when you add a guarantee. A guarantee without a failing negative control is not verified.

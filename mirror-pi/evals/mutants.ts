@@ -1,5 +1,5 @@
 // Negative controls: break one guarantee at a time and require the evals to fail.
-// Each mutant edits one source or vault file in place and always restores it.
+// Each mutant edits one source or Mirror-owned vault file in place and always restores it.
 // Usage: node mirror-pi/evals/mutants.ts [--integration]
 import { spawnSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
@@ -49,21 +49,21 @@ const MUTANTS: readonly Mutant[] = [
   },
   {
     name: "the session search looks in another directory",
-    file: "content/AGENTS.md",
+    file: "vault/AGENTS.md",
     from: "s|[/:]|-|g",
     to: "s|[/:]|_|g",
     suite: INTEGRATION,
   },
   {
     name: "the session search returns tool output",
-    file: "content/AGENTS.md",
+    file: "vault/AGENTS.md",
     from: '(.message.role == "user" or .message.role == "assistant")',
     to: '(.message.role != "system")',
     suite: INTEGRATION,
   },
   {
     name: "the session search leaves out the mirror's replies",
-    file: "content/AGENTS.md",
+    file: "vault/AGENTS.md",
     from: '(.message.role == "user" or .message.role == "assistant")',
     to: '(.message.role == "user")',
     suite: INTEGRATION,
@@ -88,6 +88,48 @@ const MUTANTS: readonly Mutant[] = [
     from: "if (!confirmed) {",
     to: "if (confirmed && !confirmed) {",
     suite: INTEGRATION,
+  },
+  {
+    name: "the projection overwrites uncommitted edits of Mirror files",
+    file: "mirror-pi/src/projection.ts",
+    from: "if (conflicts.length > 0) {",
+    to: "if (conflicts.length > 999) {",
+    suite: CONTRACTS,
+  },
+  {
+    name: "starter content replaces the user's files",
+    file: "mirror-pi/src/projection.ts",
+    from: ".filter((file) => file.current === undefined)",
+    to: ".filter((file) => file.current !== null)",
+    suite: CONTRACTS,
+  },
+  {
+    name: "starter content is copied again into an existing vault",
+    file: "mirror-pi/src/projection.ts",
+    from: "const starter = fresh ?",
+    to: "const starter = true ?",
+    suite: CONTRACTS,
+  },
+  {
+    name: "the projection commits the user's staged work",
+    file: "mirror-pi/src/projection.ts",
+    from: '"--only", "--", ...paths]',
+    to: '"--all"]',
+    suite: CONTRACTS,
+  },
+  {
+    name: "Mirror files that already matched stay uncommitted",
+    file: "mirror-pi/src/projection.ts",
+    from: "await uncommitted(vault, [...owned, ...starter].map((file) => file.path));",
+    to: "await uncommitted(vault, written.map((file) => file.path));",
+    suite: CONTRACTS,
+  },
+  {
+    name: "a directory without Git gets no Git repository",
+    file: "mirror-pi/src/projection.ts",
+    from: "if (top !== undefined && (await realpath(top)) === vault) return;",
+    to: "if (top !== null) return;",
+    suite: CONTRACTS,
   },
 ];
 

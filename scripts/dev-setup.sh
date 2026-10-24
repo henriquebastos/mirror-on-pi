@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Prepare manual development sessions. Run once; run with --reset to replace the development vault.
+# Prepare manual development sessions. Run again after changing vault/ to update the development vault.
+# Run with --reset to replace the development vault.
 # - Links dev/pi-agent/auth.json to your personal Pi auth file. No other file is shared.
-# - Copies the synthetic vault to ~/.local/state/mirror/vault-dev, outside this repository,
-#   so this repository's AGENTS.md does not load into Mirror sessions.
+# - Projects this repository into ~/.local/state/mirror/vault-dev with scripts/mirror-init.sh, as for any vault.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -18,12 +18,7 @@ fi
 if [[ "${1:-}" == "--reset" && -d "$vault" ]]; then
   rm -rf "$vault"
 fi
-if [[ ! -d "$vault" ]]; then
-  mkdir -p "$(dirname "$vault")"
-  cp -R "$root/content" "$vault"
-  rm -rf "$vault/journeys"/*/journal "$vault/journeys"/*/corrections
-  echo "copied the synthetic vault to $vault"
-fi
+"$root/scripts/mirror-init.sh" "$vault"
 
 cat <<MSG
 
