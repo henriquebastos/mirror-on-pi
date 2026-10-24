@@ -1,3 +1,0 @@
-# AI Memory scope for this journey. Every Pi session started in this directory uses it.
-workspace = "mirror"
-project = "career"

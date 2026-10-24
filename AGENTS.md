@@ -7,17 +7,16 @@ Read [mirror-pi/docs/evals.md](mirror-pi/docs/evals.md) before changing or addin
 ## Rules
 
 - Keep Mirror as close to plain Pi as possible. Put behavior in the vault's `AGENTS.md` files. Add an extension only when Pi cannot do the job, and keep each extension to one job.
-- Never use personal content, personal AI Memory, or retained personal sessions as fixtures. Evals use the synthetic starter vault and the local development AI Memory.
-- Never edit global Pi or AI Memory configuration. Development sessions use `dev/pi-agent` and the local AI Memory.
+- Never use personal content or personal sessions as fixtures. Evals use the synthetic starter vault and a temporary Pi agent directory.
+- Never edit global Pi configuration. Development sessions use `dev/pi-agent`.
 - Do not copy credentials. `dev/pi-agent` links only `auth.json` to the personal Pi agent directory.
-- Do not edit `dev/pi-agent/extensions/ai-memory-pi.ts`. Regenerate it with `scripts/ai-memory-extension.sh`, from the AI Memory release pinned in the dotfiles.
 - A journey is a directory. A session belongs to the journey of its working directory.
 
 ## Validate
 
 ```sh
 pnpm check
-scripts/ai-memory.sh up && pnpm test:integration
+pnpm test:integration
 pnpm test:mutants
 ```
 

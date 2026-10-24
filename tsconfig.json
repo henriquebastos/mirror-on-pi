@@ -21,6 +21,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["mirror-pi/**/*.ts", "dev/**/*.ts"],
-  "exclude": ["dev/pi-agent/extensions/**", "dev/ai-memory/**"]
+  "include": ["mirror-pi/**/*.ts"]
 }

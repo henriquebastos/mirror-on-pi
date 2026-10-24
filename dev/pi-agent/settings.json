@@ -3,7 +3,6 @@
   "defaultModel": "gpt-6-astra",
   "defaultThinkingLevel": "medium",
   "extensions": [
-    "../../mirror-pi/extensions/recall.ts",
     "../../mirror-pi/extensions/journal.ts",
     "../../mirror-pi/extensions/corrections.ts",
     "../../mirror-pi/extensions/identity.ts"

@@ -1,6 +1,6 @@
 # TypeScript in Mirror
 
-Mirror has little code. Each rule below prevents a failure that matters here: a lost memory event, a record written to the wrong place, untrusted data treated as trusted, or a state that should not exist.
+Mirror has little code. Each rule below prevents a failure that matters here: a lost record, a record written to the wrong place, untrusted data treated as trusted, or a state that should not exist.
 The **Check** column names the tool that enforces the rule. "Review" means no tool catches it.
 
 Run all checks with `pnpm check` (TypeScript 6, typed ESLint, contract evals). Node runs the `.ts` files directly, so only erasable TypeScript syntax is allowed.
@@ -9,13 +9,13 @@ Run all checks with `pnpm check` (TypeScript 6, typed ESLint, contract evals). N
 
 | ID | Rule | Why | Check |
 |---|---|---|---|
-| 1a | Await, return, or explicitly `void` every promise. | A memory write that nobody awaits can fail without a trace. | `no-floating-promises`, `no-misused-promises` |
+| 1a | Await, return, or explicitly `void` every promise. | A file write that nobody awaits can fail without a trace. | `no-floating-promises`, `no-misused-promises` |
 | 1b | Treat indexed access as possibly missing. | `entries[0]` can be `undefined`. | `noUncheckedIndexedAccess` |
 | 1c | Model finite states as discriminated unions. | A session cannot be both ready and blocked. | Review |
 | 1d | Make every `switch` over a union exhaustive. End with `assertNever`. | A new state cannot be forgotten. | `switch-exhaustiveness-check` |
-| 1e | Validate untrusted input once, at the boundary. | AI Memory responses, YAML frontmatter, profile files, and tool arguments come from outside. | `no-unsafe-type-assertion`, review |
+| 1e | Validate untrusted input once, at the boundary. | Session files, YAML frontmatter, profile files, and tool arguments come from outside. | `no-unsafe-type-assertion`, review |
 | 1f | Use `unknown`, never `any`. Narrow with type guards. | `any` turns the checker off and spreads. | `no-explicit-any`, `no-unsafe-*` |
-| 1g | Return `Result` for expected failures. Throw `Error` for bugs and broken infrastructure. | The caller must handle "memory is unreachable". A broken invariant should stop the process. | `only-throw-error`, review |
+| 1g | Return `Result` for expected failures. Throw `Error` for bugs and broken infrastructure. | The caller must handle "this entry is empty". A broken invariant should stop the process. | `only-throw-error`, review |
 | 1h | Prefer `readonly` data. | Callers cannot change state behind a module's back. | Review |
 | 1i | Use explicit boolean conditions. | `if (count)` is false for `0`; `if (text)` is false for `""`. | `strict-boolean-expressions` |
 | 1j | Use `type`, named exports, `import type`, and `.ts` import paths. No enums or namespaces. | One style, and Node can strip the types. | `consistent-type-definitions`, `no-restricted-syntax`, `verbatimModuleSyntax`, `erasableSyntaxOnly` |
@@ -32,17 +32,16 @@ The only default export is a Pi extension entry point, because Pi requires it.
 ### 2a Results for expected failures
 
 ```typescript
-// Bad: the caller cannot tell "memory is down" from a bug.
-async function recent(scope: MemoryScope): Promise<QueryHit[]> {
-  const response = await fetch(url);
-  return (await response.json()).hits;
+// Bad: the caller cannot tell an empty entry from a bug.
+async function saveJournal(context: RecordContext, input: JournalInput): Promise<RecordReceipt> {
+  if (input.title.trim() === "") throw new Error("A journal entry needs a title");
+  return write(context, input);
 }
 
 // Good: an expected failure is a value the caller must handle.
-async function recent(scope: MemoryScope): Promise<Result<readonly QueryHit[], MemoryError>> {
-  const response = await post("/mcp", request);
-  if (!response.ok) return response;
-  return parseHits(response.value);
+async function saveJournal(context: RecordContext, input: JournalInput): Promise<Result<RecordReceipt, string>> {
+  if (input.title.trim() === "") return err("A journal entry needs a title and a body");
+  return write(context, input);
 }
 ```
 
@@ -132,7 +131,7 @@ const stem = `${context.now().toISOString().slice(0, 10)}-${slugify(title)}`;
 ## 3 Tests that find bugs
 
 - Test behavior at the module's contract, not private helpers.
-- Use real components where they are cheap: real files in a temporary vault, real Pi sessions, the local AI Memory.
+- Use real components where they are cheap: real files in a temporary vault, real Pi sessions and session files, real `jq` and `rg`.
 - Script the model only to test wiring. Do not treat a scripted answer as evidence of reflective quality.
 - For each guarantee, add a mutant to `mirror-pi/evals/mutants.ts` that breaks it, and check that the evals fail.
-- Assert on exact observable results: file names, page paths, captured prompts, and blocked tool reasons.
+- Assert on exact observable results: file names, search output lines, and blocked tool reasons.

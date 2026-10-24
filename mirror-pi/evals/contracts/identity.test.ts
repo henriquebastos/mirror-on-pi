@@ -37,7 +37,7 @@ test("a missing section is added at the end, and an empty file gets only the sec
 });
 
 test("each layer has its file and section, and the bullet is dated with the exact text", async () => {
-  const vault = await tempVault("mirror");
+  const vault = await tempVault();
   const plan = async (layer: "self" | "shadow" | "ego" | "persona", persona?: string): Promise<string> => {
     const target = await planIntegration(vault.root, { layer, persona, text: "  My measure also belongs to care.  " }, fixed);
     assert.ok(target.ok, target.ok ? "" : target.error);
@@ -51,7 +51,7 @@ test("each layer has its file and section, and the bullet is dated with the exac
 });
 
 test("empty, multi-line, unknown-persona, and misplaced-persona integrations are refused", async () => {
-  const vault = await tempVault("mirror");
+  const vault = await tempVault();
   const refused = async (layer: "self" | "persona", text: string, persona?: string): Promise<string> => {
     const target = await planIntegration(vault.root, { layer, persona, text }, fixed);
     assert.ok(!target.ok);
@@ -65,7 +65,7 @@ test("empty, multi-line, unknown-persona, and misplaced-persona integrations are
 });
 
 test("writing keeps the identity file's earlier content and the vault is found from a journey directory", async () => {
-  const vault = await tempVault("mirror");
+  const vault = await tempVault();
   assert.equal(await findVault(vault.journey("health")), vault.root);
   const file = join(vault.root, "identity/self/soul.md");
   const before = await readFile(file, "utf8");
@@ -78,7 +78,7 @@ test("writing keeps the identity file's earlier content and the vault is found f
 });
 
 test("a missing shadow profile is created with the section only", async () => {
-  const vault = await tempVault("mirror");
+  const vault = await tempVault();
   await rm(join(vault.root, "identity/shadow"), { recursive: true, force: true });
   const target = await planIntegration(vault.root, { layer: "shadow", persona: undefined, text: "A part of me buys safety with availability." }, fixed);
   assert.ok(target.ok);

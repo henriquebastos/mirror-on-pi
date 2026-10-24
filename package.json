@@ -11,8 +11,6 @@
     "test": "node --test mirror-pi/evals/contracts/",
     "test:integration": "node --test --test-concurrency=1 mirror-pi/evals/integration/",
     "test:mutants": "node mirror-pi/evals/mutants.ts --integration",
-    "ai-memory": "scripts/ai-memory.sh",
-    "test:llm": "node --test --test-concurrency=1 mirror-pi/evals/llm/",
     "test:behavior": "node --test --test-concurrency=1 mirror-pi/evals/behavior/"
   },
   "dependencies": {

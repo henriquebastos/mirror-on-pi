@@ -1,23 +1,12 @@
 node_modules/
 .scratch/
-dev/ai-memory/data/
-dev/ai-memory/models/
-dev/ai-memory/.env
-# The pinned AI Memory release and its client state (spool, logs) for development sessions.
-dev/ai-memory/cli/
-dev/ai-memory/client/
 mirror-pi/evals/results/runs/
+mirror-pi/evals/results/memory/
 .DS_Store
 *.log
-dev/pi-model-bridge/run/
 # Records written by Mirror sessions are personal; only the synthetic starter content is tracked.
 content/journeys/*/journal/
 content/journeys/*/corrections/
-# Development Pi agent directory: only the shared configuration is tracked.
+# Development Pi agent directory, including its sessions: only the shared configuration is tracked.
 dev/pi-agent/*
 !dev/pi-agent/settings.json
-!dev/pi-agent/ai-memory.json
-!dev/pi-agent/extensions/
-dev/pi-agent/extensions/*
-!dev/pi-agent/extensions/ai-memory-pi.ts
-mirror-pi/evals/results/memory/

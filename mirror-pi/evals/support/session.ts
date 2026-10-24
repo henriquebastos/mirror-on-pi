@@ -1,21 +1,24 @@
 // Run a real Pi SDK session in a journey directory with Mirror's extensions, as a manual session would.
-// Pi loads the vault's AGENTS.md files itself. Capture is the generated AI Memory extension that development
-// sessions load from dev/pi-agent/extensions. Only the model and the client of Mirror's own extensions are chosen by the eval.
-import { mkdtemp } from "node:fs/promises";
+// Pi loads the vault's AGENTS.md files itself. Only the model and the clock are chosen by the eval.
+import { mkdtempSync, realpathSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { fauxProvider, type Api, type FauxResponseStep, type Model } from "@earendil-works/pi-ai";
-import { createAgentSession, DefaultResourceLoader, ModelRuntime, SettingsManager, type AgentSession, type ExtensionFactory, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import { createAgentSession, DefaultResourceLoader, ModelRuntime, SettingsManager, type AgentSession, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { SessionManager } from "@earendil-works/pi-coding-agent";
 import { createCorrectionsExtension } from "../../extensions/corrections.ts";
 import { createIdentityExtension } from "../../extensions/identity.ts";
 import { createJournalExtension } from "../../extensions/journal.ts";
-import { createRecallExtension } from "../../extensions/recall.ts";
-import type { MemoryClient } from "../../src/memory-client.ts";
 import { assertNever } from "../../src/result.ts";
-import { DEV_AGENT_DIR } from "./memory.ts";
 
-export const AI_MEMORY_EXTENSION = join(DEV_AGENT_DIR, "extensions", "ai-memory-pi.ts");
+export const DEV_AGENT_DIR = fileURLToPath(new URL("../../../dev/pi-agent/", import.meta.url));
+
+// One Pi agent directory for every session of this eval process, as one personal agent directory serves every journey.
+// Pi and its bash tool read it from the environment, so `SessionManager.create(cwd)` and the vault's session
+// search command both use `<agent dir>/sessions/--<journey path>--/`.
+export const EVAL_AGENT_DIR = realpathSync(mkdtempSync(join(tmpdir(), "mirror-eval-agent-")));
+process.env.PI_CODING_AGENT_DIR = EVAL_AGENT_DIR;
 
 type ThinkingLevel = NonNullable<NonNullable<Parameters<typeof createAgentSession>[0]>["thinkingLevel"]>;
 
@@ -26,14 +29,11 @@ export type EvalModel =
 
 export type MirrorSessionOptions = {
   readonly cwd: string;
-  readonly client: MemoryClient;
   readonly model: EvalModel;
   readonly sessionManager: SessionManager;
   readonly now?: () => Date;
   // An interactive user who answers confirmation dialogs. Without it, the session has no UI, as in `pi -p`.
   readonly confirm?: (title: string, message: string) => Promise<boolean>;
-  // Which extensions load. "all" is a development session. The others serve experiments that isolate one part.
-  readonly extensions?: "all" | "capture" | "recall" | "none";
 };
 
 export type MirrorSession = {
@@ -42,7 +42,7 @@ export type MirrorSession = {
 };
 
 export async function openMirrorSession(options: MirrorSessionOptions): Promise<MirrorSession> {
-  const agentDir = await mkdtemp(join(tmpdir(), "mirror-eval-agent-"));
+  const agentDir = EVAL_AGENT_DIR;
   const { runtime, model, thinkingLevel } = await modelFor(options.model, agentDir);
   const now = options.now ?? ((): Date => new Date());
   const loader = new DefaultResourceLoader({
@@ -53,7 +53,7 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
     skillsOverride: (base) => ({ skills: base.skills.filter((skill) => !skill.filePath.startsWith(homedir() + sep)), diagnostics: base.diagnostics }),
     noPromptTemplates: true,
     noThemes: true,
-    ...extensionsFor(options.extensions ?? "all", options.client, now),
+    extensionFactories: [createJournalExtension(now), createCorrectionsExtension(now), createIdentityExtension(now)],
   });
   await loader.reload();
   const { session } = await createAgentSession({
@@ -74,24 +74,6 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
       session.dispose();
     },
   };
-}
-
-function extensionsFor(choice: "all" | "capture" | "recall" | "none", client: MemoryClient, now: () => Date): { additionalExtensionPaths: string[]; extensionFactories: ExtensionFactory[] } {
-  switch (choice) {
-    case "all":
-      return {
-        additionalExtensionPaths: [AI_MEMORY_EXTENSION],
-        extensionFactories: [createRecallExtension(client), createJournalExtension(client, now), createCorrectionsExtension(client, now), createIdentityExtension(now)],
-      };
-    case "capture":
-      return { additionalExtensionPaths: [AI_MEMORY_EXTENSION], extensionFactories: [] };
-    case "recall":
-      return { additionalExtensionPaths: [], extensionFactories: [createRecallExtension(client)] };
-    case "none":
-      return { additionalExtensionPaths: [], extensionFactories: [] };
-    default:
-      return assertNever(choice);
-  }
 }
 
 // A UI that answers confirmation dialogs and ignores every other UI call.

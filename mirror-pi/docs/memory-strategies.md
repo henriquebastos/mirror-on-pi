@@ -3,7 +3,7 @@
 This experiment compares three ways for the mirror to remember earlier sessions of a journey.
 It follows "MemoryTax: The Bitter Lesson of Agent Memory" (arXiv 2610.29823), which found that strong models answer better from the raw record with their own search tools than from designed memory.
 
-Run: `mirror-pi/evals/results/memory/20261024T035909Z/` (ignored by Git; it holds the synthetic history, every answer, and every grade).
+Run: `mirror-pi/evals/results/memory/20261024T035909Z/` (ignored by Git; it holds the synthetic history, every answer, and every grade). Code: commit `545de28`.
 
 ## 1 Strategies
 
@@ -13,7 +13,7 @@ Run: `mirror-pi/evals/results/memory/20261024T035909Z/` (ignored by Git; it hold
 | S2 | Raw Pi sessions in the vault | The journey's Pi session files in `.pi/sessions/`, and a `jq` command in `AGENTS.md` that extracts user and mirror messages for `rg` | None. A journey `.pi/settings.json` with `"sessionDir": ".pi/sessions"` stores sessions there. |
 | S3 | Markdown transcripts in the vault | One Markdown file per session in `sessions/`, user and mirror text only, searched with `rg` | One extension that writes the transcripts |
 
-Only the `## Memory` section of the vault's `AGENTS.md`, the files in the journey, and the extensions differ. See `mirror-pi/evals/experiments/memory/strategies.ts`.
+Only the `## Memory` section of the vault's `AGENTS.md`, the files in the journey, and the extensions differ. See `mirror-pi/evals/experiments/memory/strategies.ts` in commit `545de28`.
 
 ## 2 Method
 
@@ -66,9 +66,18 @@ For this journey, raw sessions in the vault (S2) answered every question correct
 AI Memory scored 85%, mostly because it does not keep the mirror's replies and its summaries drop details.
 S3 adds an extension and a second copy of the record for no measured gain over S2.
 
-## 7 Run again
+## 7 Decision
+
+Mirror uses S2. Pi stores sessions in its default directory, `<agent dir>/sessions/--<journey path>--/`, which already separates journeys, so no journey needs a `.pi/settings.json`.
+The search command in `content/AGENTS.md` builds that path; only the directory differs from the tested command.
+Pi's own `-c` and `/resume` work unchanged. The recall extension, the AI Memory publication of records, the development AI Memory service, and the model bridge were removed.
+
+## 8 Run again
+
+The experiment code was removed with AI Memory. It is in commit `545de28`:
 
 ```sh
+git worktree add /tmp/mirror-memexp 545de28 && cd /tmp/mirror-memexp && pnpm install
 scripts/ai-memory.sh up --llm && scripts/model-bridge.sh start
 out=mirror-pi/evals/results/memory/$(date -u +%Y%m%dT%H%M%SZ)
 node mirror-pi/evals/experiments/memory/generate.ts "$out"   # about 15 minutes, then consolidation

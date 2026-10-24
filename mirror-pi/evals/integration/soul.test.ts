@@ -7,10 +7,8 @@ import { test } from "node:test";
 import { fauxAssistantMessage, fauxToolCall, type FauxResponseStep, type TranscriptContext } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { tempVault } from "../support/content.ts";
-import { devMemory } from "../support/memory.ts";
 import { openMirrorSession } from "../support/session.ts";
 
-const memory = await devMemory();
 const fixed = (): Date => new Date("2026-10-24T08:30:00Z");
 const TEXT = "I care for bonds without turning immediate availability into proof of love.";
 
@@ -25,13 +23,13 @@ function integrate(seen: TranscriptContext[]): FauxResponseStep[] {
 }
 
 async function integrationRun(confirm: ((title: string, message: string) => Promise<boolean>) | undefined): Promise<{ before: string; after: string; transcript: string }> {
-  const vault = await tempVault(memory.workspace);
+  const vault = await tempVault();
   const cwd = vault.journey("health");
   const file = join(vault.root, "identity/self/soul.md");
   const before = await readFile(file, "utf8");
   const seen: TranscriptContext[] = [];
   const session = await openMirrorSession({
-    cwd, client: memory.client, now: fixed, sessionManager: SessionManager.inMemory(cwd),
+    cwd, now: fixed, sessionManager: SessionManager.inMemory(cwd),
     model: { kind: "scripted", responses: integrate(seen) },
     ...(confirm === undefined ? {} : { confirm }),
   });
@@ -41,10 +39,10 @@ async function integrationRun(confirm: ((title: string, message: string) => Prom
 }
 
 test("Pi offers the vault's soul skill in a journey session", async () => {
-  const vault = await tempVault(memory.workspace);
+  const vault = await tempVault();
   const cwd = vault.journey("career");
   const session = await openMirrorSession({
-    cwd, client: memory.client, sessionManager: SessionManager.inMemory(cwd),
+    cwd, sessionManager: SessionManager.inMemory(cwd),
     model: { kind: "scripted", responses: [fauxAssistantMessage("ok")] },
   });
   const system = session.session.systemPrompt;

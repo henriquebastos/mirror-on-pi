@@ -1,16 +1,15 @@
-// Record a correction when the user corrects a fact: a Markdown file in the journey's `corrections/` directory,
-// published as a pinned page so later sessions see what is true now.
+// Record a correction when the user corrects a fact: a Markdown file in the journey's `corrections/` directory
+// that states what is true now and what was believed before.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import type { MemoryClient } from "../src/memory-client.ts";
-import { receiptResult, requireJourney, sessionId, withMemory } from "../src/pi.ts";
+import { receiptResult, requireJourney, sessionId } from "../src/pi.ts";
 import { recordCorrection } from "../src/records.ts";
 
-export default async function corrections(pi: ExtensionAPI): Promise<void> {
-  await withMemory(pi, "Mirror corrections", (client) => createCorrectionsExtension(client));
+export default function corrections(pi: ExtensionAPI): void {
+  createCorrectionsExtension()(pi);
 }
 
-export function createCorrectionsExtension(client: MemoryClient, now: () => Date = () => new Date()): (pi: ExtensionAPI) => void {
+export function createCorrectionsExtension(now: () => Date = () => new Date()): (pi: ExtensionAPI) => void {
   return (pi) => {
     pi.registerTool({
       name: "mirror_record_correction",
@@ -23,8 +22,8 @@ export function createCorrectionsExtension(client: MemoryClient, now: () => Date
         note: Type.Optional(Type.String({ description: "Optional context" })),
       }),
       execute: async (_id, params, _signal, _update, ctx) => {
-        const journey = await requireJourney(ctx.cwd);
-        return receiptResult(await recordCorrection(client, { journey, sessionId: sessionId(ctx), now }, { ...params, note: params.note }));
+        const journey = requireJourney(ctx.cwd);
+        return receiptResult(await recordCorrection({ journey, sessionId: sessionId(ctx), now }, { ...params, note: params.note }));
       },
     });
   };
