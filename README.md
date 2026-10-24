@@ -1,9 +1,9 @@
 # Mirror
 
-Mirror is a reflective companion that runs as plain Pi sessions in a Markdown vault.
-Each journey is a directory. Pi reads the vault's `AGENTS.md` files and the model reads your identity files.
-Memory is Pi's own session files: the model searches the earlier sessions of its journey with `jq` and `rg`, as the vault's `AGENTS.md` instructs.
-A few small Mirror extensions save journal entries and corrections, and append identity integrations you confirm in Soul Mode.
+Mirror is a reflective companion that runs as plain Pi sessions at the root of a Markdown vault.
+Each journey is a directory with the present state of one part of your life. A session starts without a journey; when the topic fits one, the mirror proposes it and you confirm.
+Memory is Pi's own session files: the model searches the earlier sessions of every journey with `jq` and `rg`, as the vault's `AGENTS.md` instructs.
+A few small Mirror extensions enter journeys, save journal entries and corrections, and append identity integrations you confirm in Soul Mode.
 
 This repository is the code. A vault is a separate directory with its own Git repository. `scripts/mirror-init.sh <vault>` projects the repository into a vault: it creates the vault and its Git repository when needed, writes the files Mirror owns, copies the starter content into a new vault, and commits what changed. Run it again to update a vault. It never touches your own files.
 
@@ -13,16 +13,20 @@ This repository is the code. A vault is a separate directory with its own Git re
 pnpm install
 scripts/dev-setup.sh           # auth link, and mirror-init into the development vault
 
-cd ~/.local/state/mirror/vault-dev/journeys/health
-~/me/mirror/scripts/dev-pi.sh       # new session
-~/me/mirror/scripts/dev-pi.sh -c    # continue
+scripts/dev-pi.sh              # new session, from any directory
+scripts/dev-pi.sh -c           # continue the latest session
 ```
 
-`dev-pi.sh` is plain `pi` with `PI_CODING_AGENT_DIR=dev/pi-agent`. Mirror itself needs no launcher.
+`dev-pi.sh` is plain `pi` at the development vault root with `PI_CODING_AGENT_DIR=dev/pi-agent`.
+The first session asks whether to trust the vault: trust loads Mirror's extensions. In print mode, pass `-a`.
 The model needs `jq` and `rg` on the `PATH`.
 
-Start a session in another journey's directory to talk about that journey.
-You can have many sessions per journey. Pi stores them per working directory, so each journey has its own.
+## Use with your own vault
+
+```sh
+scripts/mirror-init.sh ~/my-vault                 # once, and again after each update of this repository
+mirror() { (cd ~/my-vault && pi "$@"); }          # in your shell profile
+```
 
 ## How it fits together
 
@@ -31,8 +35,8 @@ You can have many sessions per journey. Pi stores them per working directory, so
 | Mirror's instructions, including how to search earlier sessions | Mirror, projected into the vault | `vault/AGENTS.md` |
 | Identity and journeys | You, after `mirror-init` copies the starter content into a new vault | `starter/` |
 | Journal, corrections, your files | You, in the vault | The vault |
-| Conversation history and memory | Pi | `<Pi agent directory>/sessions/--<journey path>--/` |
-| Journal, corrections, identity integrations | One small Pi extension each | `mirror-pi/extensions/` |
+| Conversation history and memory | Pi | `<Pi agent directory>/sessions/--<vault path>--/` |
+| Journeys, journal, corrections, identity integrations | One small Pi extension each, loaded as a Pi package from the vault's `.pi/settings.json` | `mirror-pi/extensions/` |
 | Soul Mode | A Pi skill, projected into the vault | `vault/.agents/skills/soul/` |
 | The projection | `mirror-init` | `mirror-pi/src/projection.ts`, `scripts/mirror-init.sh` |
 

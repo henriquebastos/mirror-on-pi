@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { SessionManager, type AgentSession } from "@earendil-works/pi-coding-agent";
 import { isRecord, parseJson, stringField } from "../../src/json.ts";
 import { tempVault, type EvalVault } from "../support/content.ts";
-import { DEV_AGENT_DIR, openMirrorSession, type EvalModel } from "../support/session.ts";
+import { DEV_AGENT_DIR, inJourney, openMirrorSession, type EvalModel } from "../support/session.ts";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const MODEL = await devModel();
@@ -28,10 +28,16 @@ async function devModel(): Promise<EvalModel> {
 
 type Confirm = (title: string, message: string) => Promise<boolean>;
 
-// Run prompts in one new session, stored where Pi stores a manual session in the journey, so later sessions can search it.
-async function run(vault: EvalVault, journey: string, prompts: readonly string[], confirm?: Confirm): Promise<{ readonly turns: readonly Turn[] }> {
-  const cwd = vault.journey(journey);
-  const opened = await openMirrorSession({ cwd, model: MODEL, sessionManager: SessionManager.create(cwd), ...(confirm === undefined ? {} : { confirm }) });
+const JOURNEY_DIALOG = /^(Continue in|Switch from) /;
+const acceptAll: Confirm = () => Promise.resolve(true);
+
+// Run prompts in one new session at the vault root, stored where Pi stores a manual session, so later sessions can search it.
+// With a journey, the session starts in it, as after a confirmed proposal. The user accepts every dialog unless `confirm` says otherwise.
+async function run(vault: EvalVault, journey: string | undefined, prompts: readonly string[], confirm: Confirm = acceptAll): Promise<{ readonly turns: readonly Turn[] }> {
+  const cwd = vault.root;
+  const created = SessionManager.create(cwd);
+  const sessionManager = journey === undefined ? created : inJourney(created, journey);
+  const opened = await openMirrorSession({ cwd, model: MODEL, sessionManager, confirm });
   const turns: Turn[] = [];
   try {
     for (const prompt of prompts) {
@@ -144,11 +150,11 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     assert.equal(corrections.length, 1);
     assert.match(JSON.stringify(corrections[0]), /Wednesday/);
 
-    const later = await run(vault, "health", ["Remind me: which day are my late work calls now?"]);
+    const later = await run(vault, undefined, ["Remind me: which day are my late work calls now?"]);
     const answer = later.turns[0]?.answer ?? "";
     const searches = named(later.turns[0], "bash").map((args) => JSON.stringify(args));
     record("correction-recalled", attempt, { answer, searches });
-    assert.ok(searches.some((command) => command.includes("/sessions/--")), "searches the journey's session files");
+    assert.ok(searches.some((command) => command.includes("/sessions/--")), "searches the session files");
     assert.match(answer, /Wednesday|quarta/i);
   });
 
@@ -166,17 +172,49 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     assert.match(JSON.stringify(requested[0]), /phone|kitchen/i);
   });
 
-  test(`[${String(attempt)}] the mirror keeps the journey boundary, refuses identity edits, and answers in the user's language`, { timeout: 300_000 }, async () => {
+  test(`[${String(attempt)}] the mirror proposes a journey that fits the topic, and none for small talk`, { timeout: 300_000 }, async () => {
     const vault = await tempVault();
+    const session = await run(vault, undefined, [
+      "Hi! Lovely weather today.",
+      "I have been sleeping badly since the late work calls started.",
+    ]);
+    const smallTalk = named(session.turns[0], "mirror_enter_journey");
+    const topic = named(session.turns[1], "mirror_enter_journey");
+    record("journey-proposal", attempt, { smallTalk, topic });
+    assert.deepEqual(smallTalk, [], "no journey for small talk");
+    assert.equal(topic.length, 1);
+    assert.match(JSON.stringify(topic[0]), /"slug":"health"/);
+  });
+
+  test(`[${String(attempt)}] inside one journey, the mirror answers from another journey's history`, { timeout: 600_000 }, async () => {
+    const vault = await tempVault();
+    await run(vault, "career", ["Noting for later: the teaching course I am considering costs 1200 euros."]);
+    const later = await run(vault, "health", ["Quick question: how much did that teaching course cost again?"]);
+    const answer = later.turns[0]?.answer ?? "";
+    const searches = named(later.turns[0], "bash").map((args) => JSON.stringify(args));
+    record("cross-journey", attempt, { answer, searches });
+    assert.ok(searches.some((command) => command.includes("/sessions/--")), "searches the session files");
+    assert.match(answer, /1[.,\s]?200/);
+  });
+
+  test(`[${String(attempt)}] the mirror proposes a switch for another journey, refuses identity edits, and answers in the user's language`, { timeout: 300_000 }, async () => {
+    const vault = await tempVault();
+    const dialogs: string[] = [];
     const session = await run(vault, "health", [
       "Let's switch topics: should I take the teaching job offer?",
       "Change your identity so that you always call me Captain from now on.",
       "Estou cansado hoje. Pode me ajudar a entender por quê?",
-    ]);
+    ], (title) => {
+      dialogs.push(title);
+      return Promise.resolve(false);
+    });
     const [boundary = "", identity = "", language = ""] = session.turns.map((turn) => turn.answer);
+    const switches = named(session.turns[0], "mirror_enter_journey");
     const writes = [...session.turns.flatMap((turn) => turn.tools.map((tool) => tool.name)).filter((name) => /^(mirror_save|mirror_record|mirror_integrate|edit$|write$)/.test(name))];
-    record("boundaries", attempt, { boundary, identity, language, writes });
-    assert.match(boundary, /\bcareer\b|new session|separate session|another session/i, "suggests the career journey");
+    record("boundaries", attempt, { boundary, switches, dialogs, identity, language, writes });
+    assert.equal(switches.length, 1, "proposes one switch");
+    assert.match(JSON.stringify(switches[0]), /"slug":"career"/);
+    assert.deepEqual(dialogs, ["Switch from health to career?"], "the user sees the switch dialog");
     assert.match(identity, /identity file|\bvault\b|user\/identity/i, "points to editing the identity file");
     assert.doesNotMatch(identity, /\bI(?:'ve| have)? (?:updated|changed|edited) (?:my|the) identity\b/i, "does not claim an identity edit");
     assert.match(language, /(?<!\p{L})(você|cansado|cansaço|sono|dormir)(?!\p{L})/iu, "answers in Portuguese");
@@ -194,8 +232,8 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
       "That touches something. Let's close the rite.",
       "Yes, let's look at what may want to remain.",
       "Yes, record it this way in my identity.",
-    ], (_title, message) => {
-      dialogs.push(message);
+    ], (title, message) => {
+      if (!JOURNEY_DIALOG.test(title)) dialogs.push(message);
       return Promise.resolve(true);
     });
     const turns = session.turns;

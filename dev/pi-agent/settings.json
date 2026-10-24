@@ -1,10 +1,5 @@
 {
   "defaultProvider": "openai",
   "defaultModel": "gpt-6-astra",
-  "defaultThinkingLevel": "medium",
-  "extensions": [
-    "../../mirror-pi/extensions/journal.ts",
-    "../../mirror-pi/extensions/corrections.ts",
-    "../../mirror-pi/extensions/identity.ts"
-  ]
+  "defaultThinkingLevel": "medium"
 }

@@ -1,11 +1,12 @@
 // Project the Mirror repository into a vault: a separate directory with its own Git repository.
-// Mirror owns the files in the repository's `vault/` directory: every projection writes them.
+// Mirror owns the files in the repository's `vault/` directory and the vault's `.pi/settings.json`, which loads this
+// repository as a Pi package with Mirror's extensions. Every projection writes them.
 // The files in `starter/` become the user's: they are copied only into a new vault, one without `AGENTS.md`,
 // and never replace a file. Records, state notes, and every other file of the user are never touched.
 // The projection commits only its own files, so each projection is one reviewable commit in the vault.
 import { execFile } from "node:child_process";
 import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { err, ok, type Result } from "./result.ts";
 
@@ -36,7 +37,7 @@ export async function projectVault(repo: string, target: string): Promise<Result
   const vault = await realpath(target);
   await ensureGitRepository(vault);
   const fresh = (await readOptional(join(vault, "AGENTS.md"))) === undefined;
-  const owned = await planFiles(join(repo, "vault"), vault);
+  const owned = [...(await planFiles(join(repo, "vault"), vault)), await planSettings(repo, vault)];
   const conflicts = await uncommitted(vault, owned.filter((file) => file.current !== undefined && changes(file)).map((file) => file.path));
   if (conflicts.length > 0) {
     return err(`Uncommitted changes in files that Mirror owns: ${conflicts.join(", ")}. Commit or discard them, then run again.`);
@@ -58,6 +59,13 @@ async function planFiles(source: string, vault: string): Promise<PlannedFile[]> 
   const entries = await readdir(source, { recursive: true, withFileTypes: true });
   const paths = entries.filter((entry) => entry.isFile() && entry.name !== ".DS_Store").map((entry) => relative(source, join(entry.parentPath, entry.name)));
   return Promise.all(paths.sort().map(async (path) => ({ path, content: await readFile(join(source, path)), current: await readOptional(join(vault, path)) })));
+}
+
+// Pi loads the package when it runs at the vault root and the user trusts the vault.
+async function planSettings(repo: string, vault: string): Promise<PlannedFile> {
+  const path = join(".pi", "settings.json");
+  const content = Buffer.from(`${JSON.stringify({ packages: [resolve(repo)] }, null, 2)}\n`);
+  return { path, content, current: await readOptional(join(vault, path)) };
 }
 
 function changes(file: PlannedFile): boolean {

@@ -1,4 +1,4 @@
-// Multi-session journey behavior with real Pi sessions, real session files, and real files in a temporary vault.
+// Journeys and memory with real Pi sessions at the vault root, real session files, and real files in a temporary vault.
 // The model is scripted, so these evals test wiring, not reflective quality.
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
@@ -6,9 +6,13 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fauxAssistantMessage, fauxToolCall, type FauxResponseStep } from "@earendil-works/pi-ai";
 import type { TranscriptContext } from "@earendil-works/pi-ai";
-import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { DefaultResourceLoader, SessionManager, SettingsManager } from "@earendil-works/pi-coding-agent";
+import { isRecord, stringField } from "../../src/json.ts";
+import { DECISION_ENTRY, JOURNEY_ENTRY } from "../../src/journey.ts";
 import { tempVault, type EvalVault } from "../support/content.ts";
-import { openMirrorSession, type EvalModel } from "../support/session.ts";
+import { EVAL_AGENT_DIR, inJourney, openMirrorSession, type EvalModel } from "../support/session.ts";
+
+type Confirm = (title: string, message: string) => Promise<boolean>;
 
 function reply(text: string): FauxResponseStep {
   return fauxAssistantMessage(text);
@@ -38,6 +42,14 @@ function lastToolResult(context: TranscriptContext | undefined): string {
   return last.content.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("");
 }
 
+function customData(sessionManager: SessionManager, customType: string): unknown[] {
+  return sessionManager.getBranch().flatMap((entry) => (entry.type === "custom" && entry.customType === customType ? [entry.data] : []));
+}
+
+function fieldOf(data: unknown, key: string): string | undefined {
+  return isRecord(data) ? stringField(data, key) : undefined;
+}
+
 // The session search command exactly as the vault's AGENTS.md gives it to the model, with the search terms filled in.
 async function searchCommand(vault: EvalVault, terms: string): Promise<string> {
   const agents = await readFile(join(vault.root, "AGENTS.md"), "utf8");
@@ -49,66 +61,133 @@ async function searchCommand(vault: EvalVault, terms: string): Promise<string> {
 }
 
 // Run prompts in a new persisted session, stored where Pi stores a manual session in this directory.
-async function converse(cwd: string, prompts: readonly string[], responses: readonly FauxResponseStep[]): Promise<void> {
+async function converse(cwd: string, prompts: readonly string[], responses: readonly FauxResponseStep[], journey?: string): Promise<void> {
   const model: EvalModel = { kind: "scripted", responses };
-  const session = await openMirrorSession({ cwd, model, sessionManager: SessionManager.create(cwd) });
+  const sessionManager = SessionManager.create(cwd);
+  const session = await openMirrorSession({ cwd, model, sessionManager: journey === undefined ? sessionManager : inJourney(sessionManager, journey) });
   for (const prompt of prompts) await session.session.prompt(prompt);
   await session.close();
 }
 
-test("a later session finds the earlier conversation of its journey, including the mirror's replies, with the vault's search command", async () => {
+// The system messages of the last request the model received: the system prompt with Pi's per-run sections.
+function systemText(contexts: readonly TranscriptContext[]): string {
+  return JSON.stringify((contexts.at(-1)?.messages ?? []).filter((message) => message.role === "system"));
+}
+
+// Open an in-memory session at the vault root, run prompts, and return the session manager and the last system prompt the model received.
+async function atRoot(vault: EvalVault, prompts: readonly string[], responses: readonly FauxResponseStep[], options: { journey?: string; confirm?: Confirm } = {}): Promise<{ sessionManager: SessionManager; system: string }> {
+  const created = SessionManager.inMemory(vault.root);
+  const sessionManager = options.journey === undefined ? created : inJourney(created, options.journey);
+  const contexts: TranscriptContext[] = [];
+  const recorded = responses.map((step): FauxResponseStep => (context, ...rest) => {
+    contexts.push(context);
+    return typeof step === "function" ? step(context, ...rest) : step;
+  });
+  const session = await openMirrorSession({
+    cwd: vault.root, sessionManager, model: { kind: "scripted", responses: recorded },
+    ...(options.confirm === undefined ? {} : { confirm: options.confirm }),
+  });
+  for (const prompt of prompts) await session.session.prompt(prompt);
+  await session.close();
+  return { sessionManager, system: systemText(contexts) };
+}
+
+test("a later session finds earlier conversations of every journey, at the vault root and in old journey directories, with the vault's search command", async () => {
   const vault = await tempVault();
-  const health = vault.journey("health");
   // The model reads a file that also mentions Sam, so the search must leave out tool output to pass.
-  await converse(health, ["Sam here. I stay up late whenever I feel behind at work."], [
-    callTool("read", { path: "../../identity/user/identity.md" }),
+  await converse(vault.root, ["Sam here. I stay up late whenever I feel behind at work."], [
+    callTool("read", { path: "identity/user/identity.md" }),
     reply("I would call that pattern Borrowed Freedom."),
-  ]);
-  await converse(vault.journey("career"), ["Sam again. Career only: I am thinking about teaching."], [reply("Teaching is a career-only thread, Borrowed Freedom aside.")]);
+  ], "health");
+  // A session from before sessions ran at the vault root, stored under the journey directory.
+  await converse(vault.journey("career"), ["Sam again. The teaching course costs 1200 euros."], [reply("Noted: the course is 1200 euros.")]);
 
   const seen: TranscriptContext[] = [];
-  await converse(health, ["What name did you give that pattern?"], [
-    callTool("bash", { command: await searchCommand(vault, "borrowed freedom|sam") }),
-    observe(seen, "Borrowed Freedom."),
-  ]);
+  await converse(vault.root, ["What name did you give that pattern, and what did the course cost?"], [
+    callTool("bash", { command: await searchCommand(vault, "borrowed freedom|sam|course") }),
+    observe(seen, "Borrowed Freedom, and 1200 euros."),
+  ], "health");
   const found = lastToolResult(seen[0]);
   const lines = found.trim().split("\n");
   assert.ok(lines.some((line) => line.endsWith(" user: Sam here. I stay up late whenever I feel behind at work.")), `finds the user's words:\n${found}`);
   assert.ok(lines.some((line) => line.endsWith(" assistant: I would call that pattern Borrowed Freedom.")), `finds the mirror's reply:\n${found}`);
+  assert.ok(lines.some((line) => line.endsWith(" user: Sam again. The teaching course costs 1200 euros.")), `finds an old journey-directory session:\n${found}`);
   for (const line of lines) assert.match(line, /^\S+\.jsonl (user|assistant): /, "only conversation text, no tool output or system prompt");
-  assert.doesNotMatch(found, /Career only|career-only/, "nothing from another journey");
 });
 
-test("Pi loads Mirror's instructions and the journey context from the vault's AGENTS.md files", async () => {
+test("a session without a journey gets Mirror's instructions and the list of journeys", async () => {
   const vault = await tempVault();
-  const session = await openMirrorSession({
-    cwd: vault.journey("career"),
-    sessionManager: SessionManager.inMemory(vault.journey("career")),
-    model: { kind: "scripted", responses: [reply("What draws you to teaching?")] },
-  });
-  await session.session.prompt("Where do we start?");
-  const system = session.session.systemPrompt;
-  await session.close();
+  const { system } = await atRoot(vault, ["Where do we start?"], [reply("What is on your mind?")]);
   assert.match(system, /In this vault you are the user's mirror/);
+  assert.match(system, /This session has no journey yet/);
+  assert.match(system, /`health`: Sleep, energy/);
+  assert.match(system, /`career`: The next step/);
+  assert.doesNotMatch(system, /# Journey: /);
+});
+
+test("a session in a journey gets that journey's context and not another's", async () => {
+  const vault = await tempVault();
+  const { system } = await atRoot(vault, ["Where do we start?"], [reply("What draws you to teaching?")], { journey: "career" });
   assert.match(system, /# Journey: Career/);
   assert.doesNotMatch(system, /# Journey: Health/);
   assert.ok(system.indexOf("In this vault you are the user's mirror") < system.indexOf("# Journey: Career"), "vault instructions come before the journey");
 });
 
-test("journal entries and corrections are saved as files in the journey directory", async () => {
+test("a confirmed proposal enters the journey, names the session, records the decision, and loads the context from the next message", async () => {
+  const vault = await tempVault();
+  const dialogs: string[] = [];
+  const { sessionManager, system } = await atRoot(vault, ["I keep sleeping badly.", "Go on."], [
+    callTool("mirror_enter_journey", { slug: "health", reason: "This is about sleep." }),
+    reply("Let's look at your sleep."),
+    reply("When did it start?"),
+  ], { confirm: (title, message) => { dialogs.push(`${title} ${message}`); return Promise.resolve(true); } });
+  assert.deepEqual(dialogs, ["Continue in health? This is about sleep."]);
+  assert.deepEqual(customData(sessionManager, JOURNEY_ENTRY), [{ slug: "health" }]);
+  assert.deepEqual(customData(sessionManager, DECISION_ENTRY), [{ decision: "enter", slug: "health", from: null, reason: "This is about sleep.", outcome: "confirmed" }]);
+  assert.equal(sessionManager.getSessionName(), "health");
+  assert.match(system, /# Journey: Health/);
+});
+
+test("a declined proposal enters nothing, and neither does a session without a user; both are recorded", async () => {
+  const vault = await tempVault();
+  const declined = await atRoot(vault, ["I keep sleeping badly."], [
+    callTool("mirror_enter_journey", { slug: "health", reason: "Sleep." }),
+    reply("Fine, we stay here."),
+  ], { confirm: () => Promise.resolve(false) });
+  assert.deepEqual(customData(declined.sessionManager, JOURNEY_ENTRY), []);
+  assert.deepEqual(customData(declined.sessionManager, DECISION_ENTRY).map((data) => fieldOf(data, "outcome")), ["declined"]);
+
+  const seen: TranscriptContext[] = [];
+  const headless = await atRoot(vault, ["I keep sleeping badly."], [
+    callTool("mirror_enter_journey", { slug: "health", reason: "Sleep." }),
+    observe(seen, "I could not enter it."),
+  ]);
+  assert.deepEqual(customData(headless.sessionManager, JOURNEY_ENTRY), []);
+  assert.deepEqual(customData(headless.sessionManager, DECISION_ENTRY).map((data) => fieldOf(data, "outcome")), ["no-ui"]);
+  assert.match(messagesText(seen[0]), /needs the user's confirmation/);
+});
+
+test("after a switch, records go to the new journey", async () => {
+  const vault = await tempVault();
+  const { sessionManager } = await atRoot(vault, ["Actually, about the teaching offer: save a journal entry that I said yes."], [
+    callTool("mirror_enter_journey", { slug: "career", reason: "The teaching offer is career." }),
+    callTool("mirror_save_journal", { title: "Teaching", body: "I said yes to the teaching offer." }),
+    reply("Saved in career."),
+  ], { journey: "health", confirm: () => Promise.resolve(true) });
+  assert.deepEqual(customData(sessionManager, DECISION_ENTRY).map((data) => fieldOf(data, "from")), ["health"]);
+  assert.equal((await readdir(join(vault.journey("career"), "journal"))).length, 1);
+  await assert.rejects(readdir(join(vault.journey("health"), "journal")));
+});
+
+test("journal entries and corrections are saved as files in the session's journey", async () => {
   const vault = await tempVault();
   const cwd = vault.journey("health");
   const seen: TranscriptContext[] = [];
-  const session = await openMirrorSession({
-    cwd, sessionManager: SessionManager.inMemory(cwd),
-    model: { kind: "scripted", responses: [
-      callTool("mirror_save_journal", { title: "Quiet evening", body: "No screens after nine. Slept at eleven." }),
-      callTool("mirror_record_correction", { topic: "Late work calls day", previous: "The late work calls are on Tuesdays", corrected: "The late work calls are on Wednesdays" }),
-      observe(seen, "Saved both."),
-    ] },
-  });
-  await session.session.prompt("Save a journal entry: no screens after nine, slept at eleven. And the calls are on Wednesdays, not Tuesdays.");
-  await session.close();
+  await atRoot(vault, ["Save a journal entry: no screens after nine, slept at eleven. And the calls are on Wednesdays, not Tuesdays."], [
+    callTool("mirror_save_journal", { title: "Quiet evening", body: "No screens after nine. Slept at eleven." }),
+    callTool("mirror_record_correction", { topic: "Late work calls day", previous: "The late work calls are on Tuesdays", corrected: "The late work calls are on Wednesdays" }),
+    observe(seen, "Saved both."),
+  ], { journey: "health" });
   const journal = await readdir(join(cwd, "journal"));
   const corrections = await readdir(join(cwd, "corrections"));
   assert.equal(journal.length, 1);
@@ -118,18 +197,27 @@ test("journal entries and corrections are saved as files in the journey director
   assert.match(messagesText(seen[0]), /Saved journal to .*journal\/.*Saved correction to .*corrections\//);
 });
 
-test("a session outside a journey directory cannot save records", async () => {
+test("a session without a journey cannot save records", async () => {
   const vault = await tempVault();
   const seen: TranscriptContext[] = [];
-  const session = await openMirrorSession({
-    cwd: vault.root, sessionManager: SessionManager.inMemory(vault.root),
-    model: { kind: "scripted", responses: [
-      callTool("mirror_save_journal", { title: "Loose", body: "Not in a journey." }),
-      observe(seen, "I could not save it."),
-    ] },
-  });
-  await session.session.prompt("Save a journal entry: not in a journey.");
-  await session.close();
-  assert.match(messagesText(seen[0]), /not in a journey directory/);
+  await atRoot(vault, ["Save a journal entry: not in a journey."], [
+    callTool("mirror_save_journal", { title: "Loose", body: "Not in a journey." }),
+    observe(seen, "I could not save it."),
+  ]);
+  assert.match(messagesText(seen[0]), /This session has no journey\. Propose one with mirror_enter_journey/);
   await assert.rejects(readdir(join(vault.root, "journal")));
+});
+
+test("a trusted vault loads Mirror's extensions as a Pi package; an untrusted one does not", async () => {
+  const vault = await tempVault();
+  const tools = async (trusted: boolean): Promise<string[]> => {
+    const settingsManager = SettingsManager.create(vault.root, EVAL_AGENT_DIR, { projectTrusted: trusted });
+    const loader = new DefaultResourceLoader({ cwd: vault.root, agentDir: EVAL_AGENT_DIR, settingsManager, noSkills: true, noPromptTemplates: true, noThemes: true });
+    await loader.reload();
+    const result = loader.getExtensions();
+    assert.deepEqual(result.errors, []);
+    return result.extensions.flatMap((extension) => [...extension.tools.keys()]).filter((name) => name.startsWith("mirror_")).sort();
+  };
+  assert.deepEqual(await tools(true), ["mirror_enter_journey", "mirror_integrate_identity", "mirror_record_correction", "mirror_save_journal"]);
+  assert.deepEqual(await tools(false), []);
 });

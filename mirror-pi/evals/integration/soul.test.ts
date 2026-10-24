@@ -1,4 +1,4 @@
-// Soul Mode wiring in real Pi sessions: skill discovery from a journey directory, and identity integration
+// Soul Mode wiring in real Pi sessions: skill discovery at the vault root, and identity integration
 // that writes only after the user confirms the exact text in a dialog. The model is scripted.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -24,7 +24,7 @@ function integrate(seen: TranscriptContext[]): FauxResponseStep[] {
 
 async function integrationRun(confirm: ((title: string, message: string) => Promise<boolean>) | undefined): Promise<{ before: string; after: string; transcript: string }> {
   const vault = await tempVault();
-  const cwd = vault.journey("health");
+  const cwd = vault.root;
   const file = join(vault.root, "identity/self/soul.md");
   const before = await readFile(file, "utf8");
   const seen: TranscriptContext[] = [];
@@ -38,9 +38,9 @@ async function integrationRun(confirm: ((title: string, message: string) => Prom
   return { before, after: await readFile(file, "utf8"), transcript: JSON.stringify(seen[0]?.messages ?? []) };
 }
 
-test("Pi offers the vault's soul skill in a journey session", async () => {
+test("Pi offers the vault's soul skill in a session at the vault root", async () => {
   const vault = await tempVault();
-  const cwd = vault.journey("career");
+  const cwd = vault.root;
   const session = await openMirrorSession({
     cwd, sessionManager: SessionManager.inMemory(cwd),
     model: { kind: "scripted", responses: [fauxAssistantMessage("ok")] },

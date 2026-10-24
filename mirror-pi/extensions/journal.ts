@@ -19,7 +19,7 @@ export function createJournalExtension(now: () => Date = () => new Date()): (pi:
         body: Type.String({ minLength: 1, description: "The entry, faithful to the user's words" }),
       }),
       execute: async (_id, params, _signal, _update, ctx) => {
-        const journey = requireJourney(ctx.cwd);
+        const journey = await requireJourney(ctx);
         return receiptResult(await saveJournal({ journey, sessionId: sessionId(ctx), now }, params));
       },
     });

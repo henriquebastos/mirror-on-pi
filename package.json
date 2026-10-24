@@ -25,5 +25,13 @@
     "typebox": "1.4.3",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.0"
+  },
+  "pi": {
+    "extensions": [
+      "./mirror-pi/extensions/journeys.ts",
+      "./mirror-pi/extensions/journal.ts",
+      "./mirror-pi/extensions/corrections.ts",
+      "./mirror-pi/extensions/identity.ts"
+    ]
   }
 }

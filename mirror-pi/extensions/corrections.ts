@@ -22,7 +22,7 @@ export function createCorrectionsExtension(now: () => Date = () => new Date()): 
         note: Type.Optional(Type.String({ description: "Optional context" })),
       }),
       execute: async (_id, params, _signal, _update, ctx) => {
-        const journey = requireJourney(ctx.cwd);
+        const journey = await requireJourney(ctx);
         return receiptResult(await recordCorrection({ journey, sessionId: sessionId(ctx), now }, { ...params, note: params.note }));
       },
     });

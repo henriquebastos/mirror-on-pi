@@ -1,4 +1,4 @@
-// Run a real Pi SDK session in a journey directory with Mirror's extensions, as a manual session would.
+// Run a real Pi SDK session at the vault root with Mirror's extensions, as a manual session would.
 // Pi loads the vault's AGENTS.md files itself. Only the model and the clock are chosen by the eval.
 import { mkdtempSync, realpathSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -10,6 +10,8 @@ import type { SessionManager } from "@earendil-works/pi-coding-agent";
 import { createCorrectionsExtension } from "../../extensions/corrections.ts";
 import { createIdentityExtension } from "../../extensions/identity.ts";
 import { createJournalExtension } from "../../extensions/journal.ts";
+import { createJourneysExtension } from "../../extensions/journeys.ts";
+import { JOURNEY_ENTRY } from "../../src/journey.ts";
 import { assertNever } from "../../src/result.ts";
 
 export const DEV_AGENT_DIR = fileURLToPath(new URL("../../../dev/pi-agent/", import.meta.url));
@@ -53,7 +55,7 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
     skillsOverride: (base) => ({ skills: base.skills.filter((skill) => !skill.filePath.startsWith(homedir() + sep)), diagnostics: base.diagnostics }),
     noPromptTemplates: true,
     noThemes: true,
-    extensionFactories: [createJournalExtension(now), createCorrectionsExtension(now), createIdentityExtension(now)],
+    extensionFactories: [createJourneysExtension(), createJournalExtension(now), createCorrectionsExtension(now), createIdentityExtension(now)],
   });
   await loader.reload();
   const { session } = await createAgentSession({
@@ -74,6 +76,12 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
       session.dispose();
     },
   };
+}
+
+// Start a session that has already entered a journey, as after a confirmed mirror_enter_journey.
+export function inJourney(sessionManager: SessionManager, slug: string): SessionManager {
+  sessionManager.appendCustomEntry(JOURNEY_ENTRY, { slug });
+  return sessionManager;
 }
 
 // A UI that answers confirmation dialogs and ignores every other UI call.
