@@ -1,7 +1,7 @@
 #!/bin/sh
 # Start Mirror: the installed pi at the root of your vault, with Mirror's own Pi agent directory in <vault>/.pi/agent.
 # Your personal Pi configuration in ~/.pi/agent stays out; only auth.json is shared, by a symbolic link.
-# The vault's .pi/.gitignore keeps the agent directory, with its auth link and sessions, out of the vault's Git.
+# The vault's Git keeps the sessions and settings; its .pi/.gitignore keeps the auth link and trust decisions out.
 # Arguments go to pi unchanged. Pi asks once whether to trust the vault, which loads Mirror's extensions.
 #   MIRROR_VAULT    the vault, projected with scripts/mirror-init.sh (required)
 set -eu

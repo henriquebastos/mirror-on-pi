@@ -4,6 +4,3 @@ mirror-pi/evals/results/runs/
 mirror-pi/evals/results/memory/
 .DS_Store
 *.log
-# Development Pi agent directory, including its sessions: only the shared configuration is tracked.
-dev/pi-agent/*
-!dev/pi-agent/settings.json

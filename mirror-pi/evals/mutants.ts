@@ -97,10 +97,17 @@ const MUTANTS: readonly Mutant[] = [
     suite: CONTRACTS,
   },
   {
-    name: "the vault's Git tracks Mirror's Pi agent directory",
+    name: "the vault's Git tracks the auth link",
     file: "vault/.pi/.gitignore",
-    from: "/agent/",
-    to: "/none/",
+    from: "/agent/*\n",
+    to: "",
+    suite: CONTRACTS,
+  },
+  {
+    name: "the vault's Git leaves out the sessions",
+    file: "vault/.pi/.gitignore",
+    from: "!/agent/sessions/\n",
+    to: "",
     suite: CONTRACTS,
   },
   {

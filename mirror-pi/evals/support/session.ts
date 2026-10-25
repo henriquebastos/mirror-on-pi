@@ -14,7 +14,8 @@ import { createJourneysExtension } from "../../extensions/journeys.ts";
 import { JOURNEY_ENTRY } from "../../src/journey.ts";
 import { assertNever } from "../../src/result.ts";
 
-export const DEV_AGENT_DIR = fileURLToPath(new URL("../../../dev/pi-agent/", import.meta.url));
+// The settings that scripts/mirror.sh copies into a new Mirror agent directory, with the model.
+export const MIRROR_SETTINGS = fileURLToPath(new URL("../../../agent/settings.json", import.meta.url));
 
 // One Pi agent directory for every session of this eval process, as one personal agent directory serves every journey.
 // Pi and its bash tool read it from the environment, so `SessionManager.create(cwd)` and the vault's session

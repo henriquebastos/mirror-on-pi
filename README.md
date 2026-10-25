@@ -11,13 +11,13 @@ This repository is the code. A vault is a separate directory with its own Git re
 
 ```sh
 pnpm install
-scripts/dev-setup.sh           # auth link, and mirror-init into the development vault
+scripts/dev-setup.sh           # mirror-init into the development vault
 
 scripts/dev-pi.sh              # new session, from any directory
 scripts/dev-pi.sh -c           # continue the latest session
 ```
 
-`dev-pi.sh` is plain `pi` at the development vault root with `PI_CODING_AGENT_DIR=dev/pi-agent`.
+`dev-pi.sh` is `scripts/mirror.sh` with the development vault, `~/.local/state/mirror/vault-dev`. Development runs as production.
 The first session asks whether to trust the vault: trust loads Mirror's extensions. In print mode, pass `-a`.
 The model needs `jq` and `rg` on the `PATH`.
 
@@ -28,7 +28,7 @@ scripts/mirror-init.sh ~/my-vault                                    # once, and
 alias mirror='MIRROR_VAULT=~/my-vault ~/me/mirror/scripts/mirror.sh'  # in your shell profile
 ```
 
-`scripts/mirror.sh` runs your installed `pi` at the vault root with Mirror's own Pi agent directory in the vault, `.pi/agent/`. Your personal Pi settings, context files, extensions, and sessions stay out; only `auth.json` is shared, by a symbolic link. Mirror's sessions stay in that directory, so they move with the vault. The vault's `.pi/.gitignore` keeps the directory out of the vault's Git.
+`scripts/mirror.sh` runs your installed `pi` at the vault root with Mirror's own Pi agent directory in the vault, `.pi/agent/`. Your personal Pi settings, context files, extensions, and sessions stay out; only `auth.json` is shared, by a symbolic link. Mirror's sessions stay in that directory and belong to the vault: commit them with your notes. The vault's `.pi/.gitignore` keeps only the auth link, trust decisions, and caches out of Git.
 It starts only when the installed `pi` is the version this repository pins and tests. This repository follows the latest Pi release; after an update here, update the installed `pi` too.
 
 ## How it fits together
@@ -44,7 +44,7 @@ It starts only when the installed `pi` is the version this repository pins and t
 | The projection | `mirror-init` | `mirror-pi/src/projection.ts`, `scripts/mirror-init.sh` |
 
 - `mirror-pi/docs/` — architecture, TypeScript guidelines, evals, and the memory strategy comparison.
-- `dev/pi-agent/` — the Pi agent directory for development sessions.
+- `agent/settings.json` — Mirror's default Pi settings, with the model. The launcher copies them into a new vault's `.pi/agent/`, and the behavior evals use the same model.
 
 ## Checks
 

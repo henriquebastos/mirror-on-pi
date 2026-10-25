@@ -1,2 +1,5 @@
-# Mirror's Pi agent directory: auth link, trust decisions, settings, and sessions. Keep it out of Git.
-/agent/
+# Mirror's Pi agent directory. The sessions and the settings belong to the vault's knowledge and are committed.
+# Everything else stays on this machine: the auth link, trust decisions, caches, and any file a later Pi adds.
+/agent/*
+!/agent/sessions/
+!/agent/settings.json

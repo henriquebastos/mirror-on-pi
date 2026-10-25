@@ -1,4 +1,4 @@
-// Behavior evals with the real chat model from dev/pi-agent/settings.json, through the personal Pi authentication.
+// Behavior evals with the real chat model from agent/settings.json, Mirror's default settings, through the personal Pi authentication.
 // Each check is an observable behavior: which tools the model calls and what the answer states.
 // Set MIRROR_EVAL_REPEAT to run each scenario more than once.
 import assert from "node:assert/strict";
@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { SessionManager, type AgentSession } from "@earendil-works/pi-coding-agent";
 import { isRecord, parseJson, stringField } from "../../src/json.ts";
 import { tempVault, type EvalVault } from "../support/content.ts";
-import { DEV_AGENT_DIR, inJourney, openMirrorSession, type EvalModel } from "../support/session.ts";
+import { inJourney, MIRROR_SETTINGS, openMirrorSession, type EvalModel } from "../support/session.ts";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const MODEL = await devModel();
@@ -19,10 +19,10 @@ const results: Record<string, unknown>[] = [];
 type Turn = { readonly answer: string; readonly tools: readonly { readonly name: string; readonly args: unknown }[] };
 
 async function devModel(): Promise<EvalModel> {
-  const settings = parseJson(await readFile(join(DEV_AGENT_DIR, "settings.json"), "utf8"));
+  const settings = parseJson(await readFile(MIRROR_SETTINGS, "utf8"));
   const provider = isRecord(settings) ? stringField(settings, "defaultProvider") : undefined;
   const id = isRecord(settings) ? stringField(settings, "defaultModel") : undefined;
-  if (provider === undefined || id === undefined) throw new Error("dev/pi-agent/settings.json needs defaultProvider and defaultModel");
+  if (provider === undefined || id === undefined) throw new Error("agent/settings.json needs defaultProvider and defaultModel");
   return { kind: "real", provider, id, thinking: "medium" };
 }
 

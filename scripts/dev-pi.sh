@@ -1,11 +1,8 @@
 #!/bin/sh
-# Start a development Mirror session from any directory: plain pi at the development vault root.
-# The development agent directory keeps personal Pi settings, extensions, and sessions out. Arguments go to pi unchanged.
-# Pi asks once whether to trust the vault, which loads Mirror's extensions. In print mode (-p), pass -a to trust it.
+# Start a development Mirror session from any directory: scripts/mirror.sh with the development vault.
+# Development runs exactly as production: the installed pi, with the agent directory in the vault's .pi/agent.
+# Arguments go to pi unchanged. In print mode (-p), pass -a to trust the vault.
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
-vault="${MIRROR_DEV_VAULT:-$HOME/.local/state/mirror/vault-dev}"
-export PI_CODING_AGENT_DIR="$root/dev/pi-agent"
-cd "$vault"
-exec "$root/node_modules/.bin/pi" "$@"
+MIRROR_VAULT="${MIRROR_DEV_VAULT:-$HOME/.local/state/mirror/vault-dev}" exec "$root/scripts/mirror.sh" "$@"

@@ -18,15 +18,16 @@ async function project(vault: string): Promise<Projection> {
   return projection.value;
 }
 
-test("the vault's Git ignores Mirror's Pi agent directory, with its auth link and sessions", async () => {
+test("the vault's Git keeps Mirror's sessions and settings, and ignores the auth link, trust decisions, and caches", async () => {
   const vault = join(await tempDir(), "vault");
   await project(vault);
-  await mkdir(join(vault, ".pi", "agent", "sessions", "--vault--"), { recursive: true });
-  await writeFile(join(vault, ".pi", "agent", "auth.json"), "{}");
-  await writeFile(join(vault, ".pi", "agent", "sessions", "--vault--", "s.jsonl"), "{}\n");
+  const agent = join(vault, ".pi", "agent");
+  await mkdir(join(agent, "sessions", "--vault--"), { recursive: true });
+  for (const file of ["auth.json", "trust.json", "models-store.json", "settings.json", "sessions/--vault--/s.jsonl"]) {
+    await writeFile(join(agent, file), "{}\n");
+  }
 
-  assert.equal(git(vault, "status", "--porcelain", "--untracked-files=all"), "");
-  assert.equal(git(vault, "ls-files", ".pi"), ".pi/.gitignore\n.pi/settings.json");
+  assert.equal(git(vault, "status", "--porcelain", "--untracked-files=all"), "?? .pi/agent/sessions/--vault--/s.jsonl\n?? .pi/agent/settings.json");
 });
 
 function outcome(projection: Projection, path: string): string | undefined {
