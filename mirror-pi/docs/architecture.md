@@ -124,7 +124,7 @@ Behavior that depends on the model, such as proposing a fitting journey, reading
 - The search output names the session file, not its journey.
 - Moving the vault, or cloning it to another path, moves its sessions, but Pi names their directory after the vault path. Earlier sessions stay under the old name, outside the search, until you rename that directory. Renaming a journey leaves earlier bindings with the old name.
 - The projection writes the repository's absolute path into the vault's `.pi/settings.json`. Moving the repository needs a new projection.
-- Mirror's sessions are in the vault's `.pi/agent/sessions/`. Nothing commits them: they are in the vault's history once the user commits the vault.
+- Mirror never commits the vault's content: its sessions in `.pi/agent/sessions/`, journals, corrections, and identity files. They enter the vault's history when the user commits, with the workflow the user chooses. Only the projection commits, and only Mirror's own files.
 - Started with personal Pi instead of the launcher, a vault session loads personal context files, extensions, and AI Memory capture. The evals do not cover that.
 - Pi's default system prompt describes a coding assistant. The vault `AGENTS.md` replaces that role in words only.
 - The model has Pi's default tools, including `bash`, `edit`, and `write`. Only the instructions stop it from editing identity files with them. The confirmation dialog guards only `mirror_integrate_identity` and `mirror_enter_journey`.
