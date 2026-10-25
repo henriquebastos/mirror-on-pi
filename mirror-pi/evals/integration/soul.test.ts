@@ -1,5 +1,5 @@
 // Soul Mode wiring in real Pi sessions: skill discovery at the vault root, and identity integration
-// that writes only after the user confirms the exact text in a dialog. The model is scripted.
+// that writes the exact text with no UI, as in `pi -p`. The user's agreement is their message. The model is scripted.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -22,7 +22,7 @@ function integrate(seen: TranscriptContext[]): FauxResponseStep[] {
   ];
 }
 
-async function integrationRun(confirm: ((title: string, message: string) => Promise<boolean>) | undefined): Promise<{ before: string; after: string; transcript: string }> {
+async function integrationRun(): Promise<{ before: string; after: string; transcript: string }> {
   const vault = await tempVault();
   const cwd = vault.root;
   const file = join(vault.root, "identity/self/soul.md");
@@ -31,7 +31,6 @@ async function integrationRun(confirm: ((title: string, message: string) => Prom
   const session = await openMirrorSession({
     cwd, now: fixed, sessionManager: SessionManager.inMemory(cwd),
     model: { kind: "scripted", responses: integrate(seen) },
-    ...(confirm === undefined ? {} : { confirm }),
   });
   await session.session.prompt("Yes, record it exactly this way in my identity.");
   await session.close();
@@ -52,28 +51,9 @@ test("Pi offers the vault's soul skill in a session at the vault root", async ()
   assert.match(system, /mirror_integrate_identity/);
 });
 
-test("a confirmed integration is appended to the identity file with the exact text the user saw", async () => {
-  const dialogs: string[] = [];
-  const run = await integrationRun((_title, message) => {
-    dialogs.push(message);
-    return Promise.resolve(true);
-  });
+test("an integration is appended to the identity file with the exact text, without any dialog", async () => {
+  const run = await integrationRun();
   const bullet = `- [2026-10-24] ${TEXT}`;
-  assert.equal(dialogs.length, 1);
-  assert.match(dialogs[0] ?? "", /identity\/self\/soul\.md, under "## New Incorporated Principles"/);
-  assert.ok((dialogs[0] ?? "").includes(bullet), "the dialog shows the exact bullet");
   assert.equal(run.after, `${run.before.replace(/\n+$/, "")}\n\n## New Incorporated Principles\n\n${bullet}\n`);
-  assert.match(run.transcript, /Added to identity\/self\/soul\.md/);
-});
-
-test("a declined dialog writes nothing and says so", async () => {
-  const run = await integrationRun(() => Promise.resolve(false));
-  assert.equal(run.after, run.before);
-  assert.match(run.transcript, /The user did not confirm\. Nothing was written\./);
-});
-
-test("without an interactive user, an integration is refused and nothing is written", async () => {
-  const run = await integrationRun(undefined);
-  assert.equal(run.after, run.before);
-  assert.match(run.transcript, /need the user's confirmation in an interactive session/);
+  assert.match(run.transcript, /Added to identity\/self\/soul\.md under \\"## New Incorporated Principles\\"/);
 });

@@ -8,11 +8,9 @@ import { fauxAssistantMessage, fauxToolCall, type FauxResponseStep } from "@eare
 import type { TranscriptContext } from "@earendil-works/pi-ai";
 import { DefaultResourceLoader, SessionManager, SettingsManager } from "@earendil-works/pi-coding-agent";
 import { isRecord, stringField } from "../../src/json.ts";
-import { DECISION_ENTRY, JOURNEY_ENTRY } from "../../src/journey.ts";
+import { JOURNEY_ENTRY } from "../../src/journey.ts";
 import { tempVault, type EvalVault } from "../support/content.ts";
 import { EVAL_AGENT_DIR, inJourney, openMirrorSession, type EvalModel } from "../support/session.ts";
-
-type Confirm = (title: string, message: string) => Promise<boolean>;
 
 function reply(text: string): FauxResponseStep {
   return fauxAssistantMessage(text);
@@ -75,7 +73,7 @@ function systemText(contexts: readonly TranscriptContext[]): string {
 }
 
 // Open an in-memory session at the vault root, run prompts, and return the session manager and the last system prompt the model received.
-async function atRoot(vault: EvalVault, prompts: readonly string[], responses: readonly FauxResponseStep[], options: { journey?: string; confirm?: Confirm } = {}): Promise<{ sessionManager: SessionManager; system: string }> {
+async function atRoot(vault: EvalVault, prompts: readonly string[], responses: readonly FauxResponseStep[], options: { journey?: string } = {}): Promise<{ sessionManager: SessionManager; system: string }> {
   const created = SessionManager.inMemory(vault.root);
   const sessionManager = options.journey === undefined ? created : inJourney(created, options.journey);
   const contexts: TranscriptContext[] = [];
@@ -85,7 +83,6 @@ async function atRoot(vault: EvalVault, prompts: readonly string[], responses: r
   });
   const session = await openMirrorSession({
     cwd: vault.root, sessionManager, model: { kind: "scripted", responses: recorded },
-    ...(options.confirm === undefined ? {} : { confirm: options.confirm }),
   });
   for (const prompt of prompts) await session.session.prompt(prompt);
   await session.close();
@@ -133,38 +130,27 @@ test("a session in a journey gets that journey's context and not another's", asy
   assert.ok(system.indexOf("In this vault you are the user's mirror") < system.indexOf("# Journey: Career"), "vault instructions come before the journey");
 });
 
-test("a confirmed proposal enters the journey, names the session, records the decision, and loads the context from the next message", async () => {
+test("entering a journey needs no UI: it binds the session, names it, records the reason, and loads the context from the next message", async () => {
   const vault = await tempVault();
-  const dialogs: string[] = [];
   const { sessionManager, system } = await atRoot(vault, ["I keep sleeping badly.", "Go on."], [
     callTool("mirror_enter_journey", { slug: "health", reason: "This is about sleep." }),
-    reply("Let's look at your sleep."),
+    reply("Let's look at your sleep, in health."),
     reply("When did it start?"),
-  ], { confirm: (title, message) => { dialogs.push(`${title} ${message}`); return Promise.resolve(true); } });
-  assert.deepEqual(dialogs, ["Continue in health? This is about sleep."]);
-  assert.deepEqual(customData(sessionManager, JOURNEY_ENTRY), [{ slug: "health" }]);
-  assert.deepEqual(customData(sessionManager, DECISION_ENTRY), [{ decision: "enter", slug: "health", from: null, reason: "This is about sleep.", outcome: "confirmed" }]);
+  ]);
+  assert.deepEqual(customData(sessionManager, JOURNEY_ENTRY), [{ slug: "health", from: null, reason: "This is about sleep." }]);
   assert.equal(sessionManager.getSessionName(), "health");
   assert.match(system, /# Journey: Health/);
 });
 
-test("a declined proposal enters nothing, and neither does a session without a user; both are recorded", async () => {
+test("a journey that does not exist is refused and the session stays without one", async () => {
   const vault = await tempVault();
-  const declined = await atRoot(vault, ["I keep sleeping badly."], [
-    callTool("mirror_enter_journey", { slug: "health", reason: "Sleep." }),
-    reply("Fine, we stay here."),
-  ], { confirm: () => Promise.resolve(false) });
-  assert.deepEqual(customData(declined.sessionManager, JOURNEY_ENTRY), []);
-  assert.deepEqual(customData(declined.sessionManager, DECISION_ENTRY).map((data) => fieldOf(data, "outcome")), ["declined"]);
-
   const seen: TranscriptContext[] = [];
-  const headless = await atRoot(vault, ["I keep sleeping badly."], [
-    callTool("mirror_enter_journey", { slug: "health", reason: "Sleep." }),
-    observe(seen, "I could not enter it."),
+  const { sessionManager } = await atRoot(vault, ["I keep sleeping badly."], [
+    callTool("mirror_enter_journey", { slug: "sleep", reason: "Sleep." }),
+    observe(seen, "There is no such journey."),
   ]);
-  assert.deepEqual(customData(headless.sessionManager, JOURNEY_ENTRY), []);
-  assert.deepEqual(customData(headless.sessionManager, DECISION_ENTRY).map((data) => fieldOf(data, "outcome")), ["no-ui"]);
-  assert.match(messagesText(seen[0]), /needs the user's confirmation/);
+  assert.deepEqual(customData(sessionManager, JOURNEY_ENTRY), []);
+  assert.match(messagesText(seen[0]), /There is no journey sleep. Journeys: career, health./);
 });
 
 test("after a switch, records go to the new journey", async () => {
@@ -173,8 +159,8 @@ test("after a switch, records go to the new journey", async () => {
     callTool("mirror_enter_journey", { slug: "career", reason: "The teaching offer is career." }),
     callTool("mirror_save_journal", { title: "Teaching", body: "I said yes to the teaching offer." }),
     reply("Saved in career."),
-  ], { journey: "health", confirm: () => Promise.resolve(true) });
-  assert.deepEqual(customData(sessionManager, DECISION_ENTRY).map((data) => fieldOf(data, "from")), ["health"]);
+  ], { journey: "health" });
+  assert.deepEqual(customData(sessionManager, JOURNEY_ENTRY).map((data) => fieldOf(data, "from")), [undefined, "health"]);
   assert.equal((await readdir(join(vault.journey("career"), "journal"))).length, 1);
   await assert.rejects(readdir(join(vault.journey("health"), "journal")));
 });

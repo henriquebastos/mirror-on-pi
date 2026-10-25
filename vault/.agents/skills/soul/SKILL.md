@@ -121,7 +121,7 @@ If the user asks for changes, show a new proposal before anything is recorded. `
 ## 8. Record the integration
 
 Only after the user explicitly agrees to record the proposal, call `mirror_integrate_identity` once for each recorded layer, with that layer's exact text from the last proposal.
-The user confirms each text again in a dialog. Report each result exactly. Say a layer was recorded only when the result says "Added to". When the result says the user did not confirm, say nothing was written for that layer.
+The user's message is the confirmation: do not ask again. If the user agrees only to some layers, record only those. If the reply is unclear or asks for changes, record nothing: ask, or show a new proposal. Report each result exactly. Say a layer was recorded only when the result says "Added to".
 Never change identity files in any other way, and never record a paraphrase the user has not seen.
 Then ask: "Do you want to review another integration, or shall we close here?"
 

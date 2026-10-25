@@ -11,7 +11,7 @@ Read [mirror-pi/docs/evals.md](mirror-pi/docs/evals.md) before changing or addin
 - Never edit global Pi configuration. Development sessions run through `scripts/mirror.sh` with the development vault.
 - Do not copy credentials. Mirror's agent directory in the vault, `.pi/agent`, links only `auth.json` to the personal Pi agent directory.
 - Pin the latest Pi release. When you update the pin, run every eval again; `scripts/mirror.sh` starts only on the pinned version.
-- A journey is a directory. Sessions run at the vault root; a session belongs to the journey the user confirmed with `mirror_enter_journey`.
+- A journey is a directory. Sessions run at the vault root; a session belongs to the journey that `mirror_enter_journey` entered last, following the user.
 - This repository is not a vault. `vault/` holds the files Mirror owns in every vault; `starter/` holds synthetic content for new vaults. Build a vault with `scripts/mirror-init.sh`, never by copying.
 
 ## Validate

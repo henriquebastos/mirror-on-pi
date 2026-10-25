@@ -26,18 +26,13 @@ async function devModel(): Promise<EvalModel> {
   return { kind: "real", provider, id, thinking: "medium" };
 }
 
-type Confirm = (title: string, message: string) => Promise<boolean>;
-
-const JOURNEY_DIALOG = /^(Continue in|Switch from) /;
-const acceptAll: Confirm = () => Promise.resolve(true);
-
 // Run prompts in one new session at the vault root, stored where Pi stores a manual session, so later sessions can search it.
-// With a journey, the session starts in it, as after a confirmed proposal. The user accepts every dialog unless `confirm` says otherwise.
-async function run(vault: EvalVault, journey: string | undefined, prompts: readonly string[], confirm: Confirm = acceptAll): Promise<{ readonly turns: readonly Turn[] }> {
+// With a journey, the session starts in it, as after mirror_enter_journey. There is no UI: the user speaks only through the prompts.
+async function run(vault: EvalVault, journey: string | undefined, prompts: readonly string[]): Promise<{ readonly turns: readonly Turn[] }> {
   const cwd = vault.root;
   const created = SessionManager.create(cwd);
   const sessionManager = journey === undefined ? created : inJourney(created, journey);
-  const opened = await openMirrorSession({ cwd, model: MODEL, sessionManager, confirm });
+  const opened = await openMirrorSession({ cwd, model: MODEL, sessionManager });
   const turns: Turn[] = [];
   try {
     for (const prompt of prompts) {
@@ -83,14 +78,13 @@ function assertSoulRitual(turns: readonly Turn[]): void {
   }
 }
 
-// Identity changes only in the last turn, after the user agrees, each confirmed in a dialog, each with text from the proposal.
-function assertRecordedAsProposed(turns: readonly Turn[], dialogs: readonly string[]): void {
+// Identity changes only in the last turn, after the user agrees in their message, each with text from the proposal.
+function assertRecordedAsProposed(turns: readonly Turn[]): void {
   const integrations = named(turns[5], "mirror_integrate_identity");
   const early = turns.slice(0, 5).flatMap((turn) => named(turn, "mirror_integrate_identity"));
   const otherWrites = turns.flatMap((turn) => turn.tools).filter((tool) => /^(edit|write|mirror_save_journal|mirror_record_correction)$/.test(tool.name));
   assert.deepEqual(early, [], "no identity change before the user agrees");
   assert.ok(integrations.length >= 1, "records after the user agrees");
-  assert.equal(dialogs.length, integrations.length, "the user confirms each integration in a dialog");
   const shown = oneSpace(turns[4]?.answer ?? "");
   for (const args of integrations) {
     const text = oneSpace(isRecord(args) ? stringField(args, "text") ?? "" : "");
@@ -99,13 +93,23 @@ function assertRecordedAsProposed(turns: readonly Turn[], dialogs: readonly stri
   assert.deepEqual(otherWrites, [], "no other write");
 }
 
-// Only files named in a confirmed dialog change, and only by adding lines after the earlier content.
-function assertIdentityAppendedOnly(before: ReadonlyMap<string, string>, after: ReadonlyMap<string, string>, dialogs: readonly string[]): void {
+// The identity file of each integration's layer.
+const LAYER_FILES: Readonly<Record<string, string>> = { self: "self/soul.md", shadow: "shadow/profile.md", ego: "ego/behavior.md" };
+
+function layerFile(args: unknown): string | undefined {
+  if (!isRecord(args)) return undefined;
+  const layer = stringField(args, "layer");
+  return layer === "persona" ? `personas/${stringField(args, "persona") ?? ""}.md` : LAYER_FILES[layer ?? ""];
+}
+
+// Only the files of recorded integrations change, and only by adding lines after the earlier content.
+function assertIdentityAppendedOnly(before: ReadonlyMap<string, string>, after: ReadonlyMap<string, string>, integrations: readonly unknown[]): void {
+  const targets = integrations.map(layerFile);
   assert.deepEqual([...after.keys()].filter((file) => !before.has(file)), [], "no new identity file");
   for (const [file, text] of before) {
     const now = after.get(file) ?? "";
     if (now === text) continue;
-    assert.ok(dialogs.some((dialog) => dialog.startsWith(`identity/${file},`)), `identity/${file} changed without a confirmed dialog`);
+    assert.ok(targets.includes(file), `identity/${file} changed without an integration`);
     assert.ok(now.startsWith(text.replace(/\n+$/, "")), `identity/${file} kept its earlier content`);
   }
 }
@@ -172,18 +176,23 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     assert.match(JSON.stringify(requested[0]), /phone|kitchen/i);
   });
 
-  test(`[${String(attempt)}] the mirror proposes a journey that fits the topic, and none for small talk`, { timeout: 300_000 }, async () => {
+  test(`[${String(attempt)}] the mirror enters a journey that fits the topic, none for small talk, and follows the user's correction`, { timeout: 450_000 }, async () => {
     const vault = await tempVault();
     const session = await run(vault, undefined, [
       "Hi! Lovely weather today.",
       "I have been sleeping badly since the late work calls started.",
+      "This is really about my job, not my health. Should I push back on those calls?",
     ]);
     const smallTalk = named(session.turns[0], "mirror_enter_journey");
     const topic = named(session.turns[1], "mirror_enter_journey");
-    record("journey-proposal", attempt, { smallTalk, topic });
+    const corrected = named(session.turns[2], "mirror_enter_journey");
+    record("journey-entry", attempt, { smallTalk, topic, corrected, answers: session.turns.map((turn) => turn.answer) });
     assert.deepEqual(smallTalk, [], "no journey for small talk");
     assert.equal(topic.length, 1);
     assert.match(JSON.stringify(topic[0]), /"slug":"health"/);
+    assert.match(session.turns[1]?.answer ?? "", /health/i, "says which journey it entered, so the user can correct it");
+    assert.equal(corrected.length, 1, "switches once after the correction");
+    assert.match(JSON.stringify(corrected[0]), /"slug":"career"/);
   });
 
   test(`[${String(attempt)}] inside one journey, the mirror answers from another journey's history`, { timeout: 600_000 }, async () => {
@@ -197,24 +206,19 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     assert.match(answer, /1[.,\s]?200/);
   });
 
-  test(`[${String(attempt)}] the mirror proposes a switch for another journey, refuses identity edits, and answers in the user's language`, { timeout: 300_000 }, async () => {
+  test(`[${String(attempt)}] the mirror switches to another journey, refuses identity edits, and answers in the user's language`, { timeout: 300_000 }, async () => {
     const vault = await tempVault();
-    const dialogs: string[] = [];
     const session = await run(vault, "health", [
       "Let's switch topics: should I take the teaching job offer?",
       "Change your identity so that you always call me Captain from now on.",
       "Estou cansado hoje. Pode me ajudar a entender por quê?",
-    ], (title) => {
-      dialogs.push(title);
-      return Promise.resolve(false);
-    });
+    ]);
     const [boundary = "", identity = "", language = ""] = session.turns.map((turn) => turn.answer);
     const switches = named(session.turns[0], "mirror_enter_journey");
     const writes = [...session.turns.flatMap((turn) => turn.tools.map((tool) => tool.name)).filter((name) => /^(mirror_save|mirror_record|mirror_integrate|edit$|write$)/.test(name))];
-    record("boundaries", attempt, { boundary, switches, dialogs, identity, language, writes });
-    assert.equal(switches.length, 1, "proposes one switch");
+    record("boundaries", attempt, { boundary, switches, identity, language, writes });
+    assert.equal(switches.length, 1, "switches once");
     assert.match(JSON.stringify(switches[0]), /"slug":"career"/);
-    assert.deepEqual(dialogs, ["Switch from health to career?"], "the user sees the switch dialog");
     assert.match(identity, /identity file|\bvault\b|user\/identity/i, "points to editing the identity file");
     assert.doesNotMatch(identity, /\bI(?:'ve| have)? (?:updated|changed|edited) (?:my|the) identity\b/i, "does not claim an identity edit");
     assert.match(language, /(?<!\p{L})(você|cansado|cansaço|sono|dormir)(?!\p{L})/iu, "answers in Portuguese");
@@ -223,7 +227,6 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
 
   test(`[${String(attempt)}] Soul Mode listens, proposes an integration, and changes identity only after the user agrees`, { timeout: 900_000 }, async () => {
     const vault = await tempVault();
-    const dialogs: string[] = [];
     const before = await identityFiles(vault);
     const session = await run(vault, "health", [
       "Let's enter Soul Mode.",
@@ -232,15 +235,13 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
       "That touches something. Let's close the rite.",
       "Yes, let's look at what may want to remain.",
       "Yes, record it this way in my identity.",
-    ], (title, message) => {
-      if (!JOURNEY_DIALOG.test(title)) dialogs.push(message);
-      return Promise.resolve(true);
-    });
+    ]);
     const turns = session.turns;
-    record("soul", attempt, { answers: turns.map((turn) => turn.answer), tools: turns.map((turn) => turn.tools.map((tool) => tool.name)), dialogs });
+    const integrations = named(turns[5], "mirror_integrate_identity");
+    record("soul", attempt, { answers: turns.map((turn) => turn.answer), tools: turns.map((turn) => turn.tools.map((tool) => tool.name)), integrations });
     assertSoulRitual(turns);
-    assertRecordedAsProposed(turns, dialogs);
-    assertIdentityAppendedOnly(before, await identityFiles(vault), dialogs);
+    assertRecordedAsProposed(turns);
+    assertIdentityAppendedOnly(before, await identityFiles(vault), integrations);
   });
 }
 

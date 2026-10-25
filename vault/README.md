@@ -1,6 +1,6 @@
 # Mirror vault
 
-Open this directory as an Obsidian vault. Start Pi here, at the vault root, to talk with the mirror. When the topic fits a journey, the mirror proposes it and you confirm.
+Open this directory as an Obsidian vault. Start Pi here, at the vault root, to talk with the mirror. When the topic fits a journey, the mirror enters it and says so. If it chose wrong, tell it.
 
 This vault is a Git repository. `mirror-init` in the Mirror repository builds it and updates it:
 
@@ -8,7 +8,7 @@ This vault is a Git repository. `mirror-init` in the Mirror repository builds it
 - It copied the starter identity and journeys into the new vault once. From then on they are yours, like every other file here.
 
 - `AGENTS.md` — how the mirror answers. Pi loads it at the vault root.
-- `identity/` — who the mirror is and who it speaks with. The model reads these files. It changes them only to append a Soul Mode integration that you confirm.
+- `identity/` — who the mirror is and who it speaks with. The model reads these files. It changes them only to append a Soul Mode integration that you agree to.
 - `.agents/skills/soul/` — Soul Mode. Start it with `/skill:soul` or by asking for Soul Mode.
 - `journeys/<slug>/AGENTS.md` — one durable topic of your life and its context. Each directory below `journeys/` is a journey. The `description` in its front matter tells the mirror when the journey fits.
 - `journeys/<slug>/journal/` — journal entries saved on request.

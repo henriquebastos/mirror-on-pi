@@ -1,9 +1,9 @@
 # Mirror
 
 Mirror is a reflective companion that runs as plain Pi sessions at the root of a Markdown vault.
-Each journey is a directory with the present state of one part of your life. A session starts without a journey; when the topic fits one, the mirror proposes it and you confirm.
+Each journey is a directory with the present state of one part of your life. A session starts without a journey; when the topic fits one, the mirror enters it and says so. If it chose wrong, tell it.
 Memory is Pi's own session files: the model searches the earlier sessions of every journey with `jq` and `rg`, as the vault's `AGENTS.md` instructs.
-A few small Mirror extensions enter journeys, save journal entries and corrections, and append identity integrations you confirm in Soul Mode.
+A few small Mirror extensions enter journeys, save journal entries and corrections, and append identity integrations you agree to in Soul Mode.
 
 This repository is the code. A vault is a separate directory with its own Git repository. `scripts/mirror-init.sh <vault>` projects the repository into a vault: it creates the vault and its Git repository when needed, writes the files Mirror owns, copies the starter content into a new vault, and commits what changed. Run it again to update a vault. It never touches your own files.
 

@@ -1,6 +1,6 @@
 // A journey is a directory directly below a vault's `journeys/` directory.
-// Pi runs at the vault root. A session enters a journey when the user confirms it; the latest `mirror-journey`
-// entry on the session branch names the journey. A session started inside a journey directory belongs to that journey.
+// Pi runs at the vault root. A session enters a journey when the model enters it, following the user; the latest
+// `mirror-journey` entry on the session branch names the journey. A session started inside a journey directory belongs to that journey.
 import { readdir, readFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { isRecord, stringField } from "./json.ts";
@@ -16,19 +16,15 @@ export type JourneySummary = {
   readonly description: string;
 };
 
-// Session entries that hold Mirror's journey state. Neither enters the model's context.
+// The session entry that holds Mirror's journey state. It does not enter the model's context.
 export const JOURNEY_ENTRY = "mirror-journey";
-export const DECISION_ENTRY = "mirror-decision";
 
-export type DecisionOutcome = "confirmed" | "declined" | "no-ui";
-
-// A proposal to enter or switch a journey and the user's answer: the evidence for a later decision model.
-export type DecisionRecord = {
-  readonly decision: "enter" | "switch";
+// Entering or switching a journey. A switch right after an entry is a correction: the evidence for a later decision model.
+// Entries written before the reason was recorded hold only the slug.
+export type JourneyEntry = {
   readonly slug: string;
   readonly from: string | null;
   readonly reason: string;
-  readonly outcome: DecisionOutcome;
 };
 
 type EntryLike = { readonly type: string; readonly customType?: string; readonly data?: unknown };

@@ -5,7 +5,7 @@ import { homedir, tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fauxProvider, type Api, type FauxResponseStep, type Model } from "@earendil-works/pi-ai";
-import { createAgentSession, DefaultResourceLoader, ModelRuntime, SettingsManager, type AgentSession, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import { createAgentSession, DefaultResourceLoader, ModelRuntime, SettingsManager, type AgentSession } from "@earendil-works/pi-coding-agent";
 import type { SessionManager } from "@earendil-works/pi-coding-agent";
 import { createCorrectionsExtension } from "../../extensions/corrections.ts";
 import { createIdentityExtension } from "../../extensions/identity.ts";
@@ -35,8 +35,6 @@ export type MirrorSessionOptions = {
   readonly model: EvalModel;
   readonly sessionManager: SessionManager;
   readonly now?: () => Date;
-  // An interactive user who answers confirmation dialogs. Without it, the session has no UI, as in `pi -p`.
-  readonly confirm?: (title: string, message: string) => Promise<boolean>;
 };
 
 export type MirrorSession = {
@@ -69,7 +67,8 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
     sessionManager: options.sessionManager,
     settingsManager: SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: false } }),
   });
-  await session.bindExtensions(options.confirm === undefined ? {} : { uiContext: confirmingUI(options.confirm) });
+  // No UI, as in `pi -p`: Mirror's tools need none.
+  await session.bindExtensions({});
   return {
     session,
     close: async () => {
@@ -79,17 +78,10 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
   };
 }
 
-// Start a session that has already entered a journey, as after a confirmed mirror_enter_journey.
+// Start a session that has already entered a journey, as after mirror_enter_journey.
 export function inJourney(sessionManager: SessionManager, slug: string): SessionManager {
   sessionManager.appendCustomEntry(JOURNEY_ENTRY, { slug });
   return sessionManager;
-}
-
-// A UI that answers confirmation dialogs and ignores every other UI call.
-function confirmingUI(confirm: (title: string, message: string) => Promise<boolean>): ExtensionUIContext {
-  const ignore = (): undefined => undefined;
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- eval stub: Mirror's tools use only confirm; every other member is a no-op.
-  return new Proxy({}, { get: (_target, key) => (key === "confirm" ? confirm : ignore) }) as ExtensionUIContext;
 }
 
 async function modelFor(choice: EvalModel, agentDir: string): Promise<{ runtime: ModelRuntime; model: Model<Api>; thinkingLevel: ThinkingLevel }> {
