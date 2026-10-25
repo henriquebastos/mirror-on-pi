@@ -1,9 +1,9 @@
 #!/bin/sh
-# Start Mirror: the installed pi at the root of your vault, with Mirror's own Pi agent directory.
+# Start Mirror: the installed pi at the root of your vault, with Mirror's own Pi agent directory in <vault>/.pi/agent.
 # Your personal Pi configuration in ~/.pi/agent stays out; only auth.json is shared, by a symbolic link.
+# The vault's .pi/.gitignore keeps the agent directory, with its auth link and sessions, out of the vault's Git.
 # Arguments go to pi unchanged. Pi asks once whether to trust the vault, which loads Mirror's extensions.
-#   MIRROR_VAULT           the vault, projected with scripts/mirror-init.sh (required)
-#   MIRROR_PI_AGENT_DIR    Mirror's Pi agent directory (default ~/.local/state/mirror/pi-agent)
+#   MIRROR_VAULT    the vault, projected with scripts/mirror-init.sh (required)
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
@@ -21,7 +21,8 @@ if [ "$installed" != "$pinned" ]; then
   exit 1
 fi
 
-agent_dir="${MIRROR_PI_AGENT_DIR:-$HOME/.local/state/mirror/pi-agent}"
+cd "$MIRROR_VAULT"
+agent_dir="$(pwd -P)/.pi/agent"
 personal_auth="${MIRROR_PERSONAL_PI_AGENT_DIR:-$HOME/.pi/agent}/auth.json"
 mkdir -p "$agent_dir"
 # Mirror's settings are copied once; then they are yours to change.
@@ -29,5 +30,4 @@ mkdir -p "$agent_dir"
 [ -e "$agent_dir/auth.json" ] || [ -L "$agent_dir/auth.json" ] || ln -s "$personal_auth" "$agent_dir/auth.json"
 
 export PI_CODING_AGENT_DIR="$agent_dir"
-cd "$MIRROR_VAULT"
 exec pi "$@"

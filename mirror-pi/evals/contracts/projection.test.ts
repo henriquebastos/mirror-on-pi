@@ -18,6 +18,17 @@ async function project(vault: string): Promise<Projection> {
   return projection.value;
 }
 
+test("the vault's Git ignores Mirror's Pi agent directory, with its auth link and sessions", async () => {
+  const vault = join(await tempDir(), "vault");
+  await project(vault);
+  await mkdir(join(vault, ".pi", "agent", "sessions", "--vault--"), { recursive: true });
+  await writeFile(join(vault, ".pi", "agent", "auth.json"), "{}");
+  await writeFile(join(vault, ".pi", "agent", "sessions", "--vault--", "s.jsonl"), "{}\n");
+
+  assert.equal(git(vault, "status", "--porcelain", "--untracked-files=all"), "");
+  assert.equal(git(vault, "ls-files", ".pi"), ".pi/.gitignore\n.pi/settings.json");
+});
+
 function outcome(projection: Projection, path: string): string | undefined {
   return projection.files.find((file) => file.path === path)?.outcome;
 }

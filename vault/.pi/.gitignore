@@ -1,0 +1,2 @@
+# Mirror's Pi agent directory: auth link, trust decisions, settings, and sessions. Keep it out of Git.
+/agent/

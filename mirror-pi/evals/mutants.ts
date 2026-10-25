@@ -97,6 +97,13 @@ const MUTANTS: readonly Mutant[] = [
     suite: CONTRACTS,
   },
   {
+    name: "the vault's Git tracks Mirror's Pi agent directory",
+    file: "vault/.pi/.gitignore",
+    from: "/agent/",
+    to: "/none/",
+    suite: CONTRACTS,
+  },
+  {
     name: "the launcher uses the personal agent directory",
     file: "scripts/mirror.sh",
     from: 'export PI_CODING_AGENT_DIR="$agent_dir"',
@@ -111,10 +118,17 @@ const MUTANTS: readonly Mutant[] = [
     suite: CONTRACTS,
   },
   {
+    name: "the launcher puts the agent directory outside the vault",
+    file: "scripts/mirror.sh",
+    from: 'agent_dir="$(pwd -P)/.pi/agent"',
+    to: 'agent_dir="$HOME/.pi/agent"',
+    suite: CONTRACTS,
+  },
+  {
     name: "the launcher starts pi outside the vault",
     file: "scripts/mirror.sh",
-    from: 'cd "$MIRROR_VAULT"',
-    to: "",
+    from: 'cd "$MIRROR_VAULT"\nagent_dir="$(pwd -P)/.pi/agent"',
+    to: 'agent_dir="$MIRROR_VAULT/.pi/agent"',
     suite: CONTRACTS,
   },
   {

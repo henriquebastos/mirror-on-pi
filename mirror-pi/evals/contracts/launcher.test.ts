@@ -24,7 +24,7 @@ async function setup(): Promise<Setup> {
   await chmod(join(bin, "pi"), 0o755);
   const vault = join(dir, "vault");
   await mkdir(vault);
-  return { dir, vault, agentDir: join(dir, "mirror-agent"), personal: join(dir, "personal"), out: join(dir, "pi-started") };
+  return { dir, vault, agentDir: join(vault, ".pi", "agent"), personal: join(dir, "personal"), out: join(dir, "pi-started") };
 }
 
 function launch(s: Setup, version: string, env: Record<string, string> = {}): SpawnSyncReturns<string> {
@@ -35,7 +35,6 @@ function launch(s: Setup, version: string, env: Record<string, string> = {}): Sp
       PATH: `${join(s.dir, "bin")}:${process.env.PATH ?? ""}`,
       HOME: s.dir,
       MIRROR_VAULT: s.vault,
-      MIRROR_PI_AGENT_DIR: s.agentDir,
       MIRROR_PERSONAL_PI_AGENT_DIR: s.personal,
       FAKE_PI_VERSION: version,
       FAKE_PI_OUT: s.out,
@@ -44,7 +43,7 @@ function launch(s: Setup, version: string, env: Record<string, string> = {}): Sp
   });
 }
 
-test("the launcher starts the installed pi at the vault root with Mirror's agent directory and the arguments", async () => {
+test("the launcher starts the installed pi at the vault root with the agent directory in the vault's .pi and the arguments", async () => {
   const s = await setup();
   const result = launch(s, PINNED);
   assert.equal(result.status, 0, result.stderr);
@@ -55,7 +54,7 @@ test("the launcher starts the installed pi at the vault root with Mirror's agent
 
 test("the launcher keeps settings the user changed", async () => {
   const s = await setup();
-  await mkdir(s.agentDir);
+  await mkdir(s.agentDir, { recursive: true });
   await writeFile(join(s.agentDir, "settings.json"), "{\"defaultModel\":\"mine\"}");
   assert.equal(launch(s, PINNED).status, 0);
   assert.equal(await readFile(join(s.agentDir, "settings.json"), "utf8"), "{\"defaultModel\":\"mine\"}");

@@ -4,7 +4,7 @@ Open this directory as an Obsidian vault. Start Pi here, at the vault root, to t
 
 This vault is a Git repository. `mirror-init` in the Mirror repository builds it and updates it:
 
-- It owns `AGENTS.md`, this `README.md`, `.agents/skills/`, and `.pi/settings.json`, which loads Mirror's extensions once you trust this vault in Pi. It writes them on every run and commits the change. Do not edit them here: your edit stops the next run while it is uncommitted, and is replaced once it is committed.
+- It owns `AGENTS.md`, this `README.md`, `.agents/skills/`, `.pi/settings.json`, which loads Mirror's extensions once you trust this vault in Pi, and `.pi/.gitignore`, which keeps `.pi/agent/` out of Git. `scripts/mirror.sh` keeps Mirror's Pi configuration and sessions in `.pi/agent/`, with a link to your Pi `auth.json`. It writes them on every run and commits the change. Do not edit them here: your edit stops the next run while it is uncommitted, and is replaced once it is committed.
 - It copied the starter identity and journeys into the new vault once. From then on they are yours, like every other file here.
 
 - `AGENTS.md` — how the mirror answers. Pi loads it at the vault root.
