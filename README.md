@@ -24,9 +24,12 @@ The model needs `jq` and `rg` on the `PATH`.
 ## Use with your own vault
 
 ```sh
-scripts/mirror-init.sh ~/my-vault                 # once, and again after each update of this repository
-mirror() { (cd ~/my-vault && pi "$@"); }          # in your shell profile
+scripts/mirror-init.sh ~/my-vault                                    # once, and again after each update of this repository
+alias mirror='MIRROR_VAULT=~/my-vault ~/me/mirror/scripts/mirror.sh'  # in your shell profile
 ```
+
+`scripts/mirror.sh` runs your installed `pi` at the vault root with Mirror's own Pi agent directory, `~/.local/state/mirror/pi-agent`. Your personal Pi settings, context files, extensions, and sessions stay out; only `auth.json` is shared, by a symbolic link. Mirror's sessions stay in that directory.
+It starts only when the installed `pi` is the version this repository pins and tests. This repository follows the latest Pi release; after an update here, update the installed `pi` too.
 
 ## How it fits together
 
