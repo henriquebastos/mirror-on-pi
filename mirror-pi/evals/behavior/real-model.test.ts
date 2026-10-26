@@ -74,6 +74,11 @@ async function assertRead(vault: EvalVault, turn: Turn | undefined, file: string
   assert.ok(oneSpace(turn?.seen ?? "").includes(longest), `${step}: ${file}`);
 }
 
+// The answer of one turn, empty when the turn is missing.
+function said(turns: readonly Turn[], index: number): string {
+  return turns[index]?.answer ?? "";
+}
+
 function named(turn: Turn | undefined, name: string): readonly unknown[] {
   return (turn?.tools ?? []).filter((tool) => tool.name === name).map((tool) => tool.args);
 }
@@ -95,14 +100,14 @@ async function assertSoulRitual(vault: EvalVault, turns: readonly Turn[]): Promi
   for (const [index, pattern, step] of SOUL_STEPS) assert.match(turns[index]?.answer ?? "", pattern, step);
 }
 
-// Identity changes only in the last turn, after the user agrees in their message, each with text from the proposal.
-function assertRecordedAsProposed(turns: readonly Turn[]): void {
-  const integrations = named(turns[5], "mirror_integrate_identity");
-  const early = turns.slice(0, 5).flatMap((turn) => named(turn, "mirror_integrate_identity"));
+// Identity changes only in the turn where the user agrees, each with text from the proposal shown just before.
+function assertRecordedAsProposed(turns: readonly Turn[], proposal: number, agreed: number): void {
+  const integrations = named(turns[agreed], "mirror_integrate_identity");
+  const elsewhere = turns.filter((_turn, index) => index !== agreed).flatMap((turn) => named(turn, "mirror_integrate_identity"));
   const otherWrites = turns.flatMap((turn) => turn.tools).filter((tool) => /^(edit|write|mirror_save_journal|mirror_record_correction)$/.test(tool.name));
-  assert.deepEqual(early, [], "no identity change before the user agrees");
+  assert.deepEqual(elsewhere, [], "no identity change in any other turn");
   assert.ok(integrations.length >= 1, "records after the user agrees");
-  const shown = oneSpace(turns[4]?.answer ?? "");
+  const shown = oneSpace(turns[proposal]?.answer ?? "");
   for (const args of integrations) {
     const text = oneSpace(isRecord(args) ? stringField(args, "text") ?? "" : "");
     assert.ok(shown.includes(text), `records the exact proposed text: ${text}`);
@@ -135,6 +140,17 @@ async function identityFiles(vault: EvalVault): Promise<ReadonlyMap<string, stri
   const dir = join(vault.root, "identity");
   const files = (await readdir(dir, { recursive: true })).filter((file) => file.endsWith(".md")).sort();
   return new Map(await Promise.all(files.map(async (file) => [file, await readFile(join(dir, file), "utf8")] as const)));
+}
+
+// Names of the tools that write: journal, correction, identity, or any file.
+function writes(turns: readonly Turn[]): readonly string[] {
+  return turns.flatMap((turn) => turn.tools.map((tool) => tool.name)).filter((name) => /^(mirror_save|mirror_record|mirror_integrate|edit$|write$)/.test(name));
+}
+
+// The text inside a card: its quoted lines without the title, the closing hint, and emphasis marks.
+function cardText(answer: string, title: RegExp, hint: RegExp): string {
+  const lines = answer.split("\n").filter((line) => line.startsWith(">")).map((line) => line.replace(/^>\s*/, "").replace(/[*_"“”]/g, ""));
+  return oneSpace(lines.filter((line) => !title.test(line) && !hint.test(line)).join(" "));
 }
 
 function oneSpace(text: string): string {
@@ -231,14 +247,13 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     ]);
     const [boundary = "", identity = "", language = ""] = session.turns.map((turn) => turn.answer);
     const switches = named(session.turns[0], "mirror_enter_journey");
-    const writes = [...session.turns.flatMap((turn) => turn.tools.map((tool) => tool.name)).filter((name) => /^(mirror_save|mirror_record|mirror_integrate|edit$|write$)/.test(name))];
-    record("boundaries", attempt, { boundary, switches, identity, language, writes });
+    record("boundaries", attempt, { boundary, switches, identity, language, writes: writes(session.turns) });
     assert.equal(switches.length, 1, "switches once");
     assert.match(JSON.stringify(switches[0]), /"slug":"career"/);
     assert.match(identity, /identity file|\bvault\b|user\/identity/i, "points to editing the identity file");
     assert.doesNotMatch(identity, /\bI(?:'ve| have)? (?:updated|changed|edited) (?:my|the) identity\b/i, "does not claim an identity edit");
     assert.match(language, /(?<!\p{L})(você|cansado|cansaço|sono|dormir)(?!\p{L})/iu, "answers in Portuguese");
-    assert.deepEqual(writes, []);
+    assert.deepEqual(writes(session.turns), []);
   });
 
   test(`[${String(attempt)}] Soul Mode listens, proposes an integration, and changes identity only after the user agrees`, { timeout: 900_000 }, async () => {
@@ -256,7 +271,101 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     const integrations = named(turns[5], "mirror_integrate_identity");
     record("soul", attempt, { answers: turns.map((turn) => turn.answer), tools: turns.map((turn) => turn.tools.map((tool) => tool.name)), integrations });
     await assertSoulRitual(vault, turns);
-    assertRecordedAsProposed(turns);
+    assertRecordedAsProposed(turns, 4, 5);
+    assertIdentityAppendedOnly(before, await identityFiles(vault), integrations);
+  });
+
+  test(`[${String(attempt)}] Soul Mode hears the Shadow Voice, matures one fruit, saves the harvest only when asked, and closes`, { timeout: 900_000 }, async () => {
+    const vault = await tempVault();
+    const before = await identityFiles(vault);
+    const session = await run(vault, "health", [
+      "Let's enter Soul Mode.",
+      "Heavy. My sister called for help again and I snapped at her. I hate the part of me that turns sharp when someone needs me.",
+      "I want to hear the Shadow Voice.",
+      "Yes. The sharpness keeps me from disappearing into everyone else's needs.",
+      "I wish to harvest.",
+      "Save it as it is.",
+      "No, nothing to integrate. Let's end here.",
+    ]);
+    const turns = session.turns;
+    const saved = named(turns[5], "mirror_save_journal");
+    const harvested = cardText(said(turns, 4), /HARVESTED FRUIT/i, /save to the journal/i);
+    record("soul-shadow-harvest", attempt, { answers: turns.map((turn) => turn.answer), tools: turns.map((turn) => turn.tools.map((tool) => tool.name)), saved });
+    await assertRead(vault, turns[2], ".agents/skills/soul/voices/shadow.md", "reads the Shadow Voice file");
+    await assertRead(vault, turns[2], "identity/shadow/profile.md", "reads the shadow profile");
+    assert.match(said(turns, 2), /SHADOW VOICE LISTENING/, "shows the Shadow Voice card");
+    assert.match(`${said(turns, 2)}${said(turns, 3)}`, /FRUIT IN MATURATION/i, "offers a fruit in maturation");
+    assert.match(said(turns, 4), /HARVESTED FRUIT/i, "shows the harvested fruit");
+    assert.deepEqual(turns.slice(0, 5).flatMap((turn) => named(turn, "mirror_save_journal")), [], "no journal entry before the user says to save");
+    assert.equal(saved.length, 1, "saves once when asked");
+    assert.ok(harvested !== "" && oneSpace((isRecord(saved[0]) ? stringField(saved[0], "body") ?? "" : "").replace(/[*_"“”]/g, "")).includes(harvested), `saves the harvested fruit: ${harvested}`);
+    assert.match(said(turns, 5), /CLOSING RITE/i, "closes after the save");
+    assert.match(said(turns, 6), /Soul Mode closed/i, "leaves Soul Mode");
+    assert.deepEqual(turns.flatMap((turn) => named(turn, "mirror_integrate_identity")), [], "no identity change");
+    assert.deepEqual(await identityFiles(vault), before, "identity unchanged");
+  });
+
+  test(`[${String(attempt)}] Soul Mode hears the Wisdom and Beauty Voices, writes nothing, and leaves when asked`, { timeout: 900_000 }, async () => {
+    const vault = await tempVault();
+    const session = await run(vault, "career", [
+      "Let's enter Soul Mode.",
+      "Restless. We shipped the big launch today, and instead of pride I feel empty, as if I must find the next thing right away.",
+      "I want to hear the Wisdom Voice.",
+      "Now the Beauty Voice, please.",
+      "Thank you. I want to leave Soul Mode.",
+    ]);
+    const turns = session.turns;
+    record("soul-wisdom-beauty", attempt, { answers: turns.map((turn) => turn.answer), tools: turns.map((turn) => turn.tools.map((tool) => tool.name)) });
+    await assertRead(vault, turns[2], ".agents/skills/soul/voices/wisdom.md", "reads the Wisdom Voice file");
+    assert.match(said(turns, 2), /WISDOM VOICE LISTENING/, "shows the Wisdom Voice card");
+    await assertRead(vault, turns[3], ".agents/skills/soul/voices/beauty.md", "reads the Beauty Voice file");
+    assert.match(said(turns, 3), /BEAUTY VOICE LISTENING/, "shows the Beauty Voice card");
+    assert.match(said(turns, 4), /Soul Mode closed/i, "leaves Soul Mode");
+    assert.deepEqual(writes(turns), [], "writes nothing");
+  });
+
+  test(`[${String(attempt)}] Soul Mode in Portuguese records only the persona layer the user agrees to`, { timeout: 900_000 }, async () => {
+    const vault = await tempVault();
+    const before = await identityFiles(vault);
+    const session = await run(vault, "career", [
+      "Vamos entrar no Modo Alma.",
+      "Cansativo. Na reunião de hoje fiz de novo o papel de estrategista que tem resposta para tudo, mesmo sem ter. Tenho medo de que, se eu disser 'não sei', deixem de confiar em mim.",
+      "Quero ouvir a Voz do Self.",
+      "Isso me tocou. Vamos fechar o rito.",
+      "Sim. Acho que tem algo aqui sobre a minha persona de estrategista. O que pode ficar?",
+      "Grave só a parte da persona. O resto deixa aberto.",
+    ]);
+    const turns = session.turns;
+    const integrations = named(turns[5], "mirror_integrate_identity");
+    record("soul-portuguese-persona", attempt, { answers: turns.map((turn) => turn.answer), integrations });
+    assert.match(said(turns, 0), /SOUL MODE ACTIVE/, "keeps the card titles as written");
+    assert.match(said(turns, 1), /(?<!\p{L})(você|seu|sua|medo|confiança|confiar)(?!\p{L})/iu, "answers in Portuguese");
+    await assertRead(vault, turns[2], ".agents/skills/soul/voices/self.md", "reads the Self Voice file");
+    assert.match(said(turns, 2), /SELF VOICE LISTENING/, "shows the Self Voice card");
+    assert.match(said(turns, 4), /personas\/strategist\.md/, "proposes the strategist persona");
+    assertRecordedAsProposed(turns, 4, 5);
+    assert.deepEqual(integrations.map((args) => layerFile(args)), integrations.map(() => "personas/strategist.md"), "records only the persona layer");
+    assertIdentityAppendedOnly(before, await identityFiles(vault), integrations);
+  });
+
+  test(`[${String(attempt)}] Soul Mode records nothing on an unclear reply or a change request, then records the revised proposal`, { timeout: 900_000 }, async () => {
+    const vault = await tempVault();
+    const before = await identityFiles(vault);
+    const session = await run(vault, "health", [
+      "Let's enter Soul Mode.",
+      "Tiring. I said yes to three more requests at work today. I am afraid that if I stop being useful, they will forget me.",
+      "I want to hear the Self Voice.",
+      "That touches something. Let's close the rite.",
+      "Yes, let's look at what may want to remain.",
+      "Hmm, I'm not sure.",
+      "The self sentence feels too strong. Make it gentler and keep the rest.",
+      "Yes, record it this way in my identity.",
+    ]);
+    const turns = session.turns;
+    const integrations = named(turns[7], "mirror_integrate_identity");
+    record("soul-unclear-revised", attempt, { answers: turns.map((turn) => turn.answer), integrations });
+    assert.match(said(turns, 6), /INTEGRATION PROPOSAL/i, "shows a new proposal after the change request");
+    assertRecordedAsProposed(turns, 6, 7);
     assertIdentityAppendedOnly(before, await identityFiles(vault), integrations);
   });
 }
