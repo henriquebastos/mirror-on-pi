@@ -46,7 +46,7 @@ The repository and a vault are separate directories. Pi loads every `AGENTS.md` 
 | `vault/` | `AGENTS.md`, `README.md`, `.agents/skills/` | Mirror owns them. Every projection writes them. |
 | this repository's path | `.pi/settings.json` | Mirror owns it. It declares this repository as a Pi package. |
 | `vault/.pi/.gitignore` | `.pi/.gitignore` | Mirror owns it. The vault's Git keeps `.pi/agent/sessions/` and `settings.json`, and ignores every other file in `.pi/agent/`. |
-| `starter/` | `identity/`, `journeys/` | Copied only into a new vault, one without `AGENTS.md`. They never replace a file. Then they are the user's. |
+| `starter/` | `identity/`, `journeys/` | Copied only into a new vault, one without `AGENTS.md` and without an `identity/` directory (a migrated vault has its own). They never replace a file. Then they are the user's. |
 | none | everything else | Never touched. |
 
 `scripts/mirror-init.sh <vault>` creates the directory and runs `git init` when it is not a Git repository. It refuses to replace a Mirror file that has uncommitted changes, and then writes nothing. It commits only its own files, Mirror's files and the starter files it copied, with the repository commit in the message, so each projection is one commit in the vault. Other staged work of the user stays staged.

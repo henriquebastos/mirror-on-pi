@@ -109,14 +109,26 @@ test("the user's content stays the user's: edits, deletions, records, and staged
 
 test("an existing directory without Git keeps its files, and starter files never replace them", async () => {
   const vault = join(await tempDir(), "vault");
-  await mkdir(join(vault, "identity", "user"), { recursive: true });
-  await writeFile(join(vault, "identity", "user", "identity.md"), "# Already here\n");
+  await mkdir(join(vault, "journeys", "health"), { recursive: true });
+  await writeFile(join(vault, "journeys", "health", "AGENTS.md"), "# Already here\n");
   const projection = await project(vault);
 
   assert.equal(git(vault, "rev-parse", "--show-toplevel"), vault);
-  assert.equal(outcome(projection, "identity/user/identity.md"), undefined, "an existing file is not part of the projection");
-  assert.equal(await readFile(join(vault, "identity", "user", "identity.md"), "utf8"), "# Already here\n");
+  assert.equal(outcome(projection, "journeys/health/AGENTS.md"), undefined, "an existing file is not part of the projection");
+  assert.equal(await readFile(join(vault, "journeys", "health", "AGENTS.md"), "utf8"), "# Already here\n");
   assert.equal(outcome(projection, "identity/ego/constraints.md"), "created");
+});
+
+test("a vault with its own identity, such as a migrated one, gets no starter content", async () => {
+  const vault = join(await tempDir(), "vault");
+  await mkdir(join(vault, "identity", "user"), { recursive: true });
+  await writeFile(join(vault, "identity", "user", "identity.md"), "# Me\n");
+  const projection = await project(vault);
+
+  assert.equal(outcome(projection, "AGENTS.md"), "created", "Mirror's own files are projected");
+  assert.deepEqual(projection.files.filter((file) => /^(identity|journeys)\//.test(file.path)), [], "no starter file is copied");
+  assert.equal(existsSync(join(vault, "journeys")), false);
+  assert.equal(await readFile(join(vault, "identity", "user", "identity.md"), "utf8"), "# Me\n");
 });
 
 test("an existing directory whose Mirror files already match gets them committed", async () => {

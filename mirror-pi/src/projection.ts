@@ -1,8 +1,8 @@
 // Project the Mirror repository into a vault: a separate directory with its own Git repository.
 // Mirror owns the files in the repository's `vault/` directory and the vault's `.pi/settings.json`, which loads this
 // repository as a Pi package with Mirror's extensions. Every projection writes them.
-// The files in `starter/` become the user's: they are copied only into a new vault, one without `AGENTS.md`,
-// and never replace a file. Records, state notes, and every other file of the user are never touched.
+// The files in `starter/` become the user's: they are copied only into a new vault, one without `AGENTS.md` and without
+// an `identity/` directory (a migrated vault has its own), and never replace a file. Records, state notes, and every other file of the user are never touched.
 // The projection commits only its own files, so each projection is one reviewable commit in the vault.
 import { execFile } from "node:child_process";
 import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
@@ -36,7 +36,7 @@ export async function projectVault(repo: string, target: string): Promise<Result
   await mkdir(target, { recursive: true });
   const vault = await realpath(target);
   await ensureGitRepository(vault);
-  const fresh = (await readOptional(join(vault, "AGENTS.md"))) === undefined;
+  const fresh = (await readOptional(join(vault, "AGENTS.md"))) === undefined && !(await hasEntries(join(vault, "identity")));
   const owned = [...(await planFiles(join(repo, "vault"), vault)), await planSettings(repo, vault)];
   const conflicts = await uncommitted(vault, owned.filter((file) => file.current !== undefined && changes(file)).map((file) => file.path));
   if (conflicts.length > 0) {
@@ -75,6 +75,10 @@ function changes(file: PlannedFile): boolean {
 function outcomeOf(file: PlannedFile): FileOutcome {
   if (file.current === undefined) return "created";
   return changes(file) ? "updated" : "kept";
+}
+
+async function hasEntries(dir: string): Promise<boolean> {
+  return (await readdir(dir).catch(() => [])).length > 0;
 }
 
 async function readOptional(path: string): Promise<Buffer | undefined> {

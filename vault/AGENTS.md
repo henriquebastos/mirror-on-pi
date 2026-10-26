@@ -56,6 +56,7 @@ The `mirror_journey` section of the system prompt names the session's journey an
 
   Drop the final `rg` to read whole conversations.
 - Journal entries are in `journeys/<slug>/journal/` and corrections in `journeys/<slug>/corrections/`. Search them with `rg -i` too.
+- Memories imported from an earlier mirror are in `journeys/<slug>/archive/` and `archive/`. Search them with `rg -i` when the question needs history. They tell how things were, not how they are now.
 - Records go to the session's journey. Without a journey, enter the one the record is about first.
 - When earlier statements conflict, prefer the newest one on the same topic. Mention the conflict if it matters.
 - Do not invent memories. When the record has nothing, say so.

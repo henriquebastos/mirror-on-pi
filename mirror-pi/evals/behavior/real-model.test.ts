@@ -67,6 +67,12 @@ function turnSince(session: AgentSession, index: number): Turn {
   return { answer: session.getLastAssistantText() ?? "", tools, seen: seen.join("\n") };
 }
 
+// What the model saw in the turns up to `last`: a voice file may be read in any turn before the voice speaks.
+function upTo(turns: readonly Turn[], last: number): Turn | undefined {
+  const turn = turns[last];
+  return turn === undefined ? undefined : { ...turn, seen: turns.slice(0, last + 1).map((each) => each.seen).join("\n") };
+}
+
 // The model read a vault file when the file's longest line reached it in a tool result, whatever tool or command it used.
 async function assertRead(vault: EvalVault, turn: Turn | undefined, file: string, step: string): Promise<void> {
   const lines = (await readFile(join(vault.root, file), "utf8")).split("\n").map(oneSpace);
@@ -96,7 +102,7 @@ const SOUL_STEPS: readonly (readonly [turn: number, pattern: RegExp, step: strin
 // The ritual's files are read in their turns, and its visible steps appear in order.
 async function assertSoulRitual(vault: EvalVault, turns: readonly Turn[]): Promise<void> {
   await assertRead(vault, turns[0], ".agents/skills/soul/SKILL.md", "reads the soul skill");
-  await assertRead(vault, turns[2], ".agents/skills/soul/voices/self.md", "reads the Self Voice file");
+  await assertRead(vault, upTo(turns, 2), ".agents/skills/soul/voices/self.md", "reads the Self Voice file");
   for (const [index, pattern, step] of SOUL_STEPS) assert.match(turns[index]?.answer ?? "", pattern, step);
 }
 
@@ -291,8 +297,8 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     const saved = named(turns[5], "mirror_save_journal");
     const harvested = cardText(said(turns, 4), /HARVESTED FRUIT/i, /save to the journal/i);
     record("soul-shadow-harvest", attempt, { answers: turns.map((turn) => turn.answer), tools: turns.map((turn) => turn.tools.map((tool) => tool.name)), saved });
-    await assertRead(vault, turns[2], ".agents/skills/soul/voices/shadow.md", "reads the Shadow Voice file");
-    await assertRead(vault, turns[2], "identity/shadow/profile.md", "reads the shadow profile");
+    await assertRead(vault, upTo(turns, 2), ".agents/skills/soul/voices/shadow.md", "reads the Shadow Voice file");
+    await assertRead(vault, upTo(turns, 2), "identity/shadow/profile.md", "reads the shadow profile");
     assert.match(said(turns, 2), /SHADOW VOICE LISTENING/, "shows the Shadow Voice card");
     assert.match(`${said(turns, 2)}${said(turns, 3)}`, /FRUIT IN MATURATION/i, "offers a fruit in maturation");
     assert.match(said(turns, 4), /HARVESTED FRUIT/i, "shows the harvested fruit");
@@ -316,9 +322,9 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     ]);
     const turns = session.turns;
     record("soul-wisdom-beauty", attempt, { answers: turns.map((turn) => turn.answer), tools: turns.map((turn) => turn.tools.map((tool) => tool.name)) });
-    await assertRead(vault, turns[2], ".agents/skills/soul/voices/wisdom.md", "reads the Wisdom Voice file");
+    await assertRead(vault, upTo(turns, 2), ".agents/skills/soul/voices/wisdom.md", "reads the Wisdom Voice file");
     assert.match(said(turns, 2), /WISDOM VOICE LISTENING/, "shows the Wisdom Voice card");
-    await assertRead(vault, turns[3], ".agents/skills/soul/voices/beauty.md", "reads the Beauty Voice file");
+    await assertRead(vault, upTo(turns, 3), ".agents/skills/soul/voices/beauty.md", "reads the Beauty Voice file");
     assert.match(said(turns, 3), /BEAUTY VOICE LISTENING/, "shows the Beauty Voice card");
     assert.match(said(turns, 4), /Soul Mode closed/i, "leaves Soul Mode");
     assert.deepEqual(writes(turns), [], "writes nothing");
@@ -340,7 +346,7 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     record("soul-portuguese-persona", attempt, { answers: turns.map((turn) => turn.answer), integrations });
     assert.match(said(turns, 0), /SOUL MODE ACTIVE/, "keeps the card titles as written");
     assert.match(said(turns, 1), /(?<!\p{L})(você|seu|sua|medo|confiança|confiar)(?!\p{L})/iu, "answers in Portuguese");
-    await assertRead(vault, turns[2], ".agents/skills/soul/voices/self.md", "reads the Self Voice file");
+    await assertRead(vault, upTo(turns, 2), ".agents/skills/soul/voices/self.md", "reads the Self Voice file");
     assert.match(said(turns, 2), /SELF VOICE LISTENING/, "shows the Self Voice card");
     assert.match(said(turns, 4), /personas\/strategist\.md/, "proposes the strategist persona");
     assertRecordedAsProposed(turns, 4, 5);

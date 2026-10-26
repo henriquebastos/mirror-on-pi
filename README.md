@@ -23,10 +23,24 @@ The model needs `jq` and `rg` on the `PATH`.
 
 ## Use with your own vault
 
+Use a release, not this working tree: the vault loads Mirror's extensions from the directory that ran `mirror-init`, so a vault projected from here runs every uncommitted change.
+
 ```sh
-scripts/mirror-init.sh ~/my-vault                                    # once, and again after each update of this repository
-alias mirror='MIRROR_VAULT=~/my-vault ~/me/mirror/scripts/mirror.sh'  # in your shell profile
+git worktree add ~/.local/share/mirror/v0.1.0 v0.1.0 && pnpm -C ~/.local/share/mirror/v0.1.0 install
+ln -sfn ~/.local/share/mirror/v0.1.0 ~/.local/share/mirror/current
+~/.local/share/mirror/current/scripts/mirror-init.sh ~/my-vault                 # again after each upgrade
+alias mirror='MIRROR_VAULT=~/my-vault ~/.local/share/mirror/current/scripts/mirror.sh'  # in your shell profile
 ```
+
+To upgrade, install the new tag the same way, run its `mirror-init`, and move `current`. To roll back, run the old release's `mirror-init` and move `current` back.
+
+To start from a Mirror Mind home, migrate it into the new vault before the first `mirror-init`:
+
+```sh
+~/.local/share/mirror/current/scripts/mirror-migrate.sh ~/.mirror/<user> ~/.mirror/<user> ~/my-vault
+```
+
+The first home gives the identity, the second the conversations and memories; they can differ. The migration reads the homes and never writes them. It writes identity files and journeys with their text unchanged, one Pi session per conversation (searchable like Mirror's own), and the memories as read-only archives in `journeys/<slug>/archive/`. Tasks are not migrated. It commits nothing: review the vault, then commit. A vault with its own identity gets no starter content.
 
 `scripts/mirror.sh` runs your installed `pi` at the vault root with Mirror's own Pi agent directory in the vault, `.pi/agent/`. Your personal Pi settings, context files, extensions, and sessions stay out; only `auth.json` is shared, by a symbolic link. Mirror's sessions stay in that directory and belong to the vault: commit them with your notes. The vault's `.pi/.gitignore` keeps only the auth link, trust decisions, and caches out of Git.
 It starts only when the installed `pi` is the version this repository pins and tests. This repository follows the latest Pi release; after an update here, update the installed `pi` too.
@@ -42,6 +56,7 @@ It starts only when the installed `pi` is the version this repository pins and t
 | Journeys, journal, corrections, identity integrations | One small Pi extension each, loaded as a Pi package from the vault's `.pi/settings.json` | `mirror-pi/extensions/` |
 | Soul Mode | A Pi skill, projected into the vault | `vault/.agents/skills/soul/` |
 | The projection | `mirror-init` | `mirror-pi/src/projection.ts`, `scripts/mirror-init.sh` |
+| Migration from Mirror Mind | `mirror-migrate` | `mirror-pi/src/mirror-mind.ts`, `mirror-pi/src/migration.ts`, `scripts/mirror-migrate.sh` |
 
 - `mirror-pi/docs/` — architecture, TypeScript guidelines, evals, and the memory strategy comparison.
 - `agent/settings.json` — Mirror's default Pi settings, with the model. The launcher copies them into a new vault's `.pi/agent/`, and the behavior evals use the same model.
