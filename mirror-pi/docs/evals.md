@@ -24,7 +24,7 @@ Evals define what "working as intended" means. Each one states a behavior and fa
 pnpm check
 pnpm test:integration
 pnpm test:mutants
-pnpm test:behavior          # MIRROR_EVAL_REPEAT=3 for repeated runs
+pnpm test:behavior          # MIRROR_EVAL_REPEAT=3 for repeated runs; MIRROR_EVAL_MODEL=provider/id for another model
 ```
 
 Behavior evals check observable actions with fixed patterns. The patterns are narrow on purpose: tool calls are checked exactly; answers only for a few phrases. A pass shows the behavior happened in that run. Model answers vary, so repeat runs before trusting a change in behavior.

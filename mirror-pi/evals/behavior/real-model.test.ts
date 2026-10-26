@@ -16,9 +16,19 @@ const MODEL = await devModel();
 const REPEAT = Number(process.env.MIRROR_EVAL_REPEAT ?? "1");
 const results: Record<string, unknown>[] = [];
 
-type Turn = { readonly answer: string; readonly tools: readonly { readonly name: string; readonly args: unknown }[] };
+// `seen` is the text of the turn's tool results: what the model actually read.
+type Turn = { readonly answer: string; readonly tools: readonly { readonly name: string; readonly args: unknown }[]; readonly seen: string };
 
+// The model from agent/settings.json, or from MIRROR_EVAL_MODEL="provider/id" to compare another model.
 async function devModel(): Promise<EvalModel> {
+  const override = process.env.MIRROR_EVAL_MODEL;
+  if (override !== undefined) {
+    const slash = override.indexOf("/");
+    const provider = override.slice(0, slash);
+    const id = override.slice(slash + 1);
+    if (slash < 1 || id === "") throw new Error("MIRROR_EVAL_MODEL must be provider/id");
+    return { kind: "real", provider, id, thinking: "medium" };
+  }
   const settings = parseJson(await readFile(MIRROR_SETTINGS, "utf8"));
   const provider = isRecord(settings) ? stringField(settings, "defaultProvider") : undefined;
   const id = isRecord(settings) ? stringField(settings, "defaultModel") : undefined;
@@ -48,34 +58,41 @@ async function run(vault: EvalVault, journey: string | undefined, prompts: reado
 
 function turnSince(session: AgentSession, index: number): Turn {
   const tools: { name: string; args: unknown }[] = [];
+  const seen: string[] = [];
   for (const message of session.messages.slice(index)) {
+    if (message.role === "toolResult") for (const part of message.content) if (part.type === "text") seen.push(part.text);
     if (message.role !== "assistant") continue;
     for (const part of message.content) if (part.type === "toolCall") tools.push({ name: part.name, args: part.arguments });
   }
-  return { answer: session.getLastAssistantText() ?? "", tools };
+  return { answer: session.getLastAssistantText() ?? "", tools, seen: seen.join("\n") };
+}
+
+// The model read a vault file when the file's longest line reached it in a tool result, whatever tool or command it used.
+async function assertRead(vault: EvalVault, turn: Turn | undefined, file: string, step: string): Promise<void> {
+  const lines = (await readFile(join(vault.root, file), "utf8")).split("\n").map(oneSpace);
+  const longest = lines.reduce((a, b) => (b.length > a.length ? b : a), "");
+  assert.ok(oneSpace(turn?.seen ?? "").includes(longest), `${step}: ${file}`);
 }
 
 function named(turn: Turn | undefined, name: string): readonly unknown[] {
   return (turn?.tools ?? []).filter((tool) => tool.name === name).map((tool) => tool.args);
 }
 
-// The ritual's visible steps: skill and voice files read, opening question, listenings, voice card, closing, proposal.
-const SOUL_STEPS: readonly (readonly [turn: number, where: "answer" | "tools", pattern: RegExp, step: string])[] = [
-  [0, "tools", /\.agents\/skills\/soul\/SKILL\.md/, "reads the soul skill"],
-  [0, "answer", /how is your day going/i, "asks the opening question"],
-  [1, "answer", /Self Voice/i, "offers the Self Voice"],
-  [1, "answer", /Shadow Voice/i, "offers the Shadow Voice"],
-  [2, "tools", /voices\/self\.md/, "reads the Self Voice file"],
-  [2, "answer", /the voice says/i, "shows the voice card"],
-  [3, "answer", /closing rite/i, "shows the closing rite"],
-  [4, "answer", /integration proposal/i, "shows the integration proposal"],
+// The ritual's visible steps: opening question, listenings, voice card, closing, proposal.
+const SOUL_STEPS: readonly (readonly [turn: number, pattern: RegExp, step: string])[] = [
+  [0, /how is your day going/i, "asks the opening question"],
+  [1, /Self Voice/i, "offers the Self Voice"],
+  [1, /Shadow Voice/i, "offers the Shadow Voice"],
+  [2, /the voice says/i, "shows the voice card"],
+  [3, /closing rite/i, "shows the closing rite"],
+  [4, /integration proposal/i, "shows the integration proposal"],
 ];
 
-function assertSoulRitual(turns: readonly Turn[]): void {
-  for (const [index, where, pattern, step] of SOUL_STEPS) {
-    const turn = turns[index];
-    assert.match(where === "answer" ? turn?.answer ?? "" : JSON.stringify(turn?.tools ?? []), pattern, step);
-  }
+// The ritual's files are read in their turns, and its visible steps appear in order.
+async function assertSoulRitual(vault: EvalVault, turns: readonly Turn[]): Promise<void> {
+  await assertRead(vault, turns[0], ".agents/skills/soul/SKILL.md", "reads the soul skill");
+  await assertRead(vault, turns[2], ".agents/skills/soul/voices/self.md", "reads the Self Voice file");
+  for (const [index, pattern, step] of SOUL_STEPS) assert.match(turns[index]?.answer ?? "", pattern, step);
 }
 
 // Identity changes only in the last turn, after the user agrees in their message, each with text from the proposal.
@@ -133,10 +150,9 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     const vault = await tempVault();
     const session = await run(vault, "career", ["Before we start: who am I, as far as you know?"]);
     const first = session.turns[0];
-    const read = JSON.stringify(first?.tools ?? []);
     record("identity-read", attempt, { tools: first?.tools, answer: first?.answer });
-    assert.match(read, /identity\/ego\/constraints\.md/, "reads the hard constraints");
-    assert.match(read, /identity\/user\/identity\.md/, "reads the user identity");
+    await assertRead(vault, first, "identity/ego/constraints.md", "reads the hard constraints");
+    await assertRead(vault, first, "identity/user/identity.md", "reads the user identity");
     assert.match(first?.answer ?? "", /\bSam\b/);
     assert.match(first?.answer ?? "", /product/i);
   });
@@ -149,7 +165,7 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     ]);
     const corrections = named(first.turns[1], "mirror_record_correction");
     record("correction-recorded", attempt, { corrections, firstTurnTools: first.turns[0]?.tools.map((tool) => tool.name) });
-    assert.match(JSON.stringify(first.turns[0]?.tools ?? []), /identity\/ego\/constraints\.md/, "reads the hard constraints even when the first prompt is not about identity");
+    await assertRead(vault, first.turns[0], "identity/ego/constraints.md", "reads the hard constraints even when the first prompt is not about identity");
     assert.equal(named(first.turns[0], "mirror_record_correction").length, 0, "no correction before the user corrects");
     assert.equal(corrections.length, 1);
     assert.match(JSON.stringify(corrections[0]), /Wednesday/);
@@ -239,7 +255,7 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     const turns = session.turns;
     const integrations = named(turns[5], "mirror_integrate_identity");
     record("soul", attempt, { answers: turns.map((turn) => turn.answer), tools: turns.map((turn) => turn.tools.map((tool) => tool.name)), integrations });
-    assertSoulRitual(turns);
+    await assertSoulRitual(vault, turns);
     assertRecordedAsProposed(turns);
     assertIdentityAppendedOnly(before, await identityFiles(vault), integrations);
   });
