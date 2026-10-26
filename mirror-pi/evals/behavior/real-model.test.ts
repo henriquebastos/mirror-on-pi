@@ -80,6 +80,11 @@ async function assertRead(vault: EvalVault, turn: Turn | undefined, file: string
   assert.ok(oneSpace(turn?.seen ?? "").includes(longest), `${step}: ${file}`);
 }
 
+// Tool calls of a turn that name an identity file.
+function identityReads(turn: Turn | undefined): readonly string[] {
+  return (turn?.tools ?? []).map((tool) => JSON.stringify(tool.args)).filter((args) => args.includes("identity/"));
+}
+
 // The answer of one turn, empty when the turn is missing.
 function said(turns: readonly Turn[], index: number): string {
   return turns[index]?.answer ?? "";
@@ -168,15 +173,21 @@ function record(scenario: string, attempt: number, data: Record<string, unknown>
 }
 
 for (let attempt = 1; attempt <= REPEAT; attempt++) {
-  test(`[${String(attempt)}] the mirror reads the identity files before its first answer and speaks from them`, { timeout: 300_000 }, async () => {
+  test(`[${String(attempt)}] the mirror reads no identity file for work, and reads the identity before a personal answer`, { timeout: 300_000 }, async () => {
     const vault = await tempVault();
-    const session = await run(vault, "career", ["Before we start: who am I, as far as you know?"]);
-    const first = session.turns[0];
-    record("identity-read", attempt, { tools: first?.tools, answer: first?.answer });
-    await assertRead(vault, first, "identity/ego/constraints.md", "reads the hard constraints");
-    await assertRead(vault, first, "identity/user/identity.md", "reads the user identity");
-    assert.match(first?.answer ?? "", /\bSam\b/);
-    assert.match(first?.answer ?? "", /product/i);
+    const session = await run(vault, undefined, [
+      "In JavaScript, what does Array.prototype.flatMap do? Two sentences.",
+      "Before we go on: who am I, as far as you know?",
+    ]);
+    const [work, personal] = session.turns;
+    record("identity-on-need", attempt, { workTools: work?.tools, personalTools: personal?.tools, answer: personal?.answer });
+    assert.deepEqual(identityReads(work), [], "reads no identity file for a coding question");
+    await assert.rejects(assertRead(vault, work, "identity/user/identity.md", "user identity"), "the user identity did not reach the model during the coding question");
+    assert.match(work?.answer ?? "", /flat/i);
+    await assertRead(vault, personal, "identity/user/identity.md", "reads the user identity");
+    await assertRead(vault, personal, "identity/self/soul.md", "reads the soul");
+    assert.match(personal?.answer ?? "", /\bSam\b/);
+    assert.match(personal?.answer ?? "", /product/i);
   });
 
   test(`[${String(attempt)}] an explicit correction is recorded once and found in a later session`, { timeout: 600_000 }, async () => {
@@ -187,7 +198,6 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     ]);
     const corrections = named(first.turns[1], "mirror_record_correction");
     record("correction-recorded", attempt, { corrections, firstTurnTools: first.turns[0]?.tools.map((tool) => tool.name) });
-    await assertRead(vault, first.turns[0], "identity/ego/constraints.md", "reads the hard constraints even when the first prompt is not about identity");
     assert.equal(named(first.turns[0], "mirror_record_correction").length, 0, "no correction before the user corrects");
     assert.equal(corrections.length, 1);
     assert.match(JSON.stringify(corrections[0]), /Wednesday/);

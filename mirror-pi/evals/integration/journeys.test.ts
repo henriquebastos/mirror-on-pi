@@ -1,7 +1,7 @@
 // Journeys and memory with real Pi sessions at the vault root, real session files, and real files in a temporary vault.
 // The model is scripted, so these evals test wiring, not reflective quality.
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fauxAssistantMessage, fauxToolCall, type FauxResponseStep } from "@earendil-works/pi-ai";
@@ -120,6 +120,18 @@ test("a session without a journey gets Mirror's instructions and the list of jou
   assert.match(system, /`health`: Sleep, energy/);
   assert.match(system, /`career`: The next step/);
   assert.doesNotMatch(system, /# Journey: /);
+});
+
+test("every session at the vault root gets the hard constraints and the identity map, and none without identity files", async () => {
+  const vault = await tempVault();
+  const { system } = await atRoot(vault, ["Fix this regex for me.", "Thanks."], [reply("Here it is."), reply("You are welcome.")]);
+  assert.match(system, /<mirror_identity>/);
+  assert.match(system, /Hard constraints, from `identity\/ego\/constraints\.md`/);
+  assert.match(system, /Do not invent facts about the user's life/);
+  assert.match(system, /`identity\/personas\/strategist\.md`: Strategist/);
+  await rm(join(vault.root, "identity"), { recursive: true });
+  const plain = await atRoot(vault, ["Fix this regex for me."], [reply("Here it is.")]);
+  assert.doesNotMatch(plain.system, /<mirror_identity>/);
 });
 
 test("a session in a journey gets that journey's context and not another's", async () => {

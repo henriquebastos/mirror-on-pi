@@ -299,6 +299,34 @@ const MUTANTS: readonly Mutant[] = [
     to: 'const db = new DatabaseSync(join(home, "memory.db"));',
     suite: CONTRACTS,
   },
+  {
+    name: "the hard constraints are left out of the identity section",
+    file: "mirror-pi/src/identity-context.ts",
+    from: "if (constraints !== \"\") parts.push(",
+    to: "if (constraints === \"\\0\") parts.push(",
+    suite: CONTRACTS,
+  },
+  {
+    name: "the identity map lists hidden files",
+    file: "mirror-pi/src/identity-context.ts",
+    from: ".filter((file) => !file.split(\"/\").some((part) => part.startsWith(\".\")))",
+    to: "",
+    suite: CONTRACTS,
+  },
+  {
+    name: "personas are listed without their description",
+    file: "mirror-pi/src/identity-context.ts",
+    from: "if (!file.startsWith(\"identity/personas/\") || !file.endsWith(\".md\")) return",
+    to: "if (file !== \"\") return",
+    suite: CONTRACTS,
+  },
+  {
+    name: "the identity section does not reach the model",
+    file: "mirror-pi/extensions/identity.ts",
+    from: "if (section !== undefined) event.systemPromptOptions",
+    to: "if (section === \"\") event.systemPromptOptions",
+    suite: INTEGRATION,
+  },
 ];
 
 async function run(includeIntegration: boolean): Promise<number> {

@@ -1,7 +1,9 @@
-// Append a Soul Mode integration to an identity file. The user's own message agreeing to the proposed text is the confirmation;
-// the Soul skill tells the model to call this tool only after it.
+// The identity in every session at the vault root: the hard constraints and the identity map join the system prompt.
+// Soul Mode integrations: the only identity change. The user's own message agreeing to the proposed text is the confirmation;
+// the Soul skill tells the model to call the tool only after it.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { identitySection } from "../src/identity-context.ts";
 import { findVault, planIntegration, writeIntegration } from "../src/identity.ts";
 
 export default function identity(pi: ExtensionAPI): void {
@@ -10,6 +12,12 @@ export default function identity(pi: ExtensionAPI): void {
 
 export function createIdentityExtension(now: () => Date = () => new Date()): (pi: ExtensionAPI) => void {
   return (pi) => {
+    pi.on("before_agent_start", async (event, ctx) => {
+      const vault = await findVault(ctx.cwd);
+      const section = vault === undefined ? undefined : await identitySection(vault);
+      if (section !== undefined) event.systemPromptOptions.sections.mirror_identity = section;
+    });
+
     pi.registerTool({
       name: "mirror_integrate_identity",
       label: "Integrate into identity",

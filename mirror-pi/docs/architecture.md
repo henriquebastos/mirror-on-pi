@@ -6,8 +6,9 @@ Mirror is plain Pi at the root of a Markdown vault, plus a few small Mirror exte
 
 | Concern | Owner | Notes |
 |---|---|---|
-| How the mirror answers | `vault/AGENTS.md` | Pi loads it as a context file at the vault root. It tells the model to read the identity files, how to use journeys, and how to search earlier sessions. |
-| Identity | `identity/` in the vault, from `starter/identity/` | Markdown read by the model with Pi's `read` tool. Nothing composes or injects it. |
+| How the mirror answers | `vault/AGENTS.md` | Pi loads it as a context file at the vault root. It tells the model when to read the identity files, how to use journeys, and how to search earlier sessions. |
+| Identity | `identity/` in the vault, from `starter/identity/` | Markdown. The model reads the files only for personal or reflective conversation, not for work. |
+| Identity in every session | `mirror-pi/extensions/identity.ts`, `mirror-pi/src/identity-context.ts` | Before each run, a `mirror_identity` system prompt section holds the hard constraints (`identity/ego/constraints.md`) in full and one line per other identity file, personas with their name and description. A vault without identity files gets no section. |
 | Soul Mode | `vault/.agents/skills/soul/` | A Pi skill in the vault: the ritual in `SKILL.md`, one file per voice in `voices/`. Cards and the fruit live in the conversation. A harvested fruit is saved with `mirror_save_journal`. |
 | Identity integrations | `mirror-pi/extensions/identity.ts` | `mirror_integrate_identity`: after the user agrees in the chat to the exact text, appends a dated bullet to the layer's section (self, shadow, ego, or persona file). |
 | A journey | `journeys/<slug>/` in the vault | A directory directly below `journeys/`: the present state of one topic and what is known about it. Its `AGENTS.md` holds the journey context. |
@@ -110,13 +111,14 @@ a record on request
 | A projection keeps the user's files and work | Starter files only into a new vault and never over a file; a refusal before any write when a Mirror file has uncommitted changes; a commit of only its own files. | `projection.test.ts`, six mutants |
 | Records never overwrite | Exclusive file creation; a taken name gets the next number. | `records.test.ts`, mutant |
 | An integration writes the exact text it reports | `mirror_integrate_identity` appends the bullet and reports the file and section. | integration "an integration is appended", mutant that reports without writing |
+| The hard constraints reach every run | The `mirror_identity` section holds them in full, without front matter, also when the front matter is broken. | `identity-context.test.ts`, integration "every session at the vault root", three mutants |
 | Integrations append and never replace | The bullet goes at the end of the layer's section; every earlier line stays, in order. | `identity.test.ts`, mutants that replace the file or use another section |
 
 Behavior that depends on the model, such as entering a fitting journey, following the user's correction, recording an integration only after the user agrees, reading the identity, searching earlier sessions, recording corrections, following the Soul Mode ritual, or not editing identity files with other tools, is checked by the behavior evals, not enforced.
 
 ## Known limits
 
-- The model must enter journeys, follow the user's corrections, read the identity files, and search earlier sessions itself. The behavior evals check that it does.
+- The model must enter journeys, follow the user's corrections, read the identity files when the conversation is personal, and search earlier sessions itself. The behavior evals check that it does.
 - A journey's context reaches the model from the message after the binding. In the turn of the binding, the tool tells the model to read the journey's `AGENTS.md` itself.
 - `pi -c` continues the latest session of the vault, whatever its journey. The session name shows the journey in `/resume`.
 - Memory search is lexical. The model chooses the terms; a memory phrased with other words can be missed. The comparison used 24 sessions. Searching years of sessions was not tested and will cost more per question.

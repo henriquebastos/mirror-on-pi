@@ -8,7 +8,7 @@ This vault is a Git repository. `mirror-init` in the Mirror repository builds it
 - It copied the starter identity and journeys into the new vault once, unless the vault already had an identity, as a vault migrated from Mirror Mind does. From then on they are yours, like every other file here.
 
 - `AGENTS.md` — how the mirror answers. Pi loads it at the vault root.
-- `identity/` — who the mirror is and who it speaks with. The model reads these files. It changes them only to append a Soul Mode integration that you agree to.
+- `identity/` — who the mirror is and who it speaks with. The model has the hard constraints and the list of files in every session, and reads the files when the conversation is personal. It changes them only to append a Soul Mode integration that you agree to.
 - `.agents/skills/soul/` — Soul Mode. Start it with `/skill:soul` or by asking for Soul Mode.
 - `journeys/<slug>/AGENTS.md` — one durable topic of your life and its context. Each directory below `journeys/` is a journey. The `description` in its front matter tells the mirror when the journey fits.
 - `journeys/<slug>/journal/` — journal entries saved on request.
