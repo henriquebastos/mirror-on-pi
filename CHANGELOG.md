@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.1 — 2026-10-26
+
+Plain by default: most sessions are work, and the mirror reads the identity only when the conversation needs it.
+
+### Changes
+
+- Every session at the vault root gets the hard constraints in full and a one-line map of the identity files in the system prompt (`mirror_identity`). Personas are listed with their name and description. A vault without identity files gets nothing.
+- The model reads the identity files before a personal or reflective answer, and not for code, facts, research, or files. The vault `AGENTS.md` no longer says the mirror is not a coding agent.
+
+### Validation
+
+- Contract evals 35/35, integration evals 12/12, mutants 44/44 killed.
+- Behavior evals with real models, 11 scenarios, once each: `openai/gpt-6-astra` 11/11 and `openrouter/anthropic/claude-opus-5.5` 11/11. The new identity scenario passed 3 more runs on each model.
+- Negative control: with the 0.1.0 `AGENTS.md`, the new identity scenario fails (the model reads identity files for a coding question).
+
 ## 0.1.0 — 2026-10-26
 
 The first internal release: Mirror as plain Pi sessions at the root of a Markdown vault in Git.
