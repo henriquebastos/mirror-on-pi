@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.2 — 2026-10-26
+
+The vault's `AGENTS.md` becomes your map, and a journey can be any directory of the vault.
+
+### Changes
+
+- Mirror's instructions come from the release as a `mirror_instructions` system prompt section, not from the vault's `AGENTS.md`.
+- The vault's `AGENTS.md` is yours: a short map that every agent starting in the vault reads. `mirror-init` copies a starter map into a vault it has not projected before, and replaces Mirror's former instructions with it once. It never writes the map again.
+- A journey is a directory below `journeys/`, or a directory listed in the map's `## Journeys` section as `` - `slug`: `path/` ``. A listed directory that is missing on this machine is skipped. Records go to the journey's directory.
+- A subagent started in the vault (`PI_SUBAGENT_CHILD=1`) is not the mirror: it gets no Mirror instructions, identity, or journeys.
+- The session search reads the sessions of every directory of the vault.
+
+### Validation
+
+- Contract evals 39/39, integration evals 14/14, mutants 56/56 killed.
+- Behavior evals with real models, 11 scenarios over 3 runs: `openai/gpt-6-astra` 33/33 and `openrouter/anthropic/claude-opus-5.5` 33/33.
+
 ## 0.1.1 — 2026-10-26
 
 Plain by default: most sessions are work, and the mirror reads the identity only when the conversation needs it.
