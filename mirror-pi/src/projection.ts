@@ -3,11 +3,14 @@
 // repository as a Pi package with Mirror's extensions. Every projection writes them.
 // The files in `starter/` become the user's: they are copied only into a new vault, one without `AGENTS.md` and without
 // an `identity/` directory (a migrated vault has its own), and never replace a file. Records, state notes, and every other file of the user are never touched.
+// The vault's `AGENTS.md` is the user's map. The starter map goes into every vault that Mirror has not projected before,
+// a migrated one too. It replaces, once, the instructions that Mirror 0.1.0 and 0.1.1 kept in that file.
 // The projection commits only its own files, so each projection is one reviewable commit in the vault.
 import { execFile } from "node:child_process";
 import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
+import { VAULT_MAP } from "./journey.ts";
 import { err, ok, type Result } from "./result.ts";
 
 export type FileOutcome = "created" | "updated" | "kept";
@@ -32,17 +35,22 @@ type PlannedFile = {
 
 const run = promisify(execFile);
 
+const SETTINGS = join(".pi", "settings.json");
+// Every AGENTS.md that Mirror 0.1.0 and 0.1.1 projected starts with this text.
+const FORMER_INSTRUCTIONS = "# Mirror\n\nThis directory is a Mirror vault.";
+
 export async function projectVault(repo: string, target: string): Promise<Result<Projection, string>> {
   await mkdir(target, { recursive: true });
   const vault = await realpath(target);
   await ensureGitRepository(vault);
   const fresh = (await readOptional(join(vault, "AGENTS.md"))) === undefined && !(await hasEntries(join(vault, "identity")));
-  const owned = [...(await planFiles(join(repo, "vault"), vault)), await planSettings(repo, vault)];
+  const map = await planMap(repo, vault);
+  const owned = [...(await planFiles(join(repo, "vault"), vault)), await planSettings(repo, vault), ...(map === undefined ? [] : [map])];
   const conflicts = await uncommitted(vault, owned.filter((file) => file.current !== undefined && changes(file)).map((file) => file.path));
   if (conflicts.length > 0) {
     return err(`Uncommitted changes in files that Mirror owns: ${conflicts.join(", ")}. Commit or discard them, then run again.`);
   }
-  const starter = fresh ? (await planFiles(join(repo, "starter"), vault)).filter((file) => file.current === undefined) : [];
+  const starter = fresh ? (await planFiles(join(repo, "starter"), vault)).filter((file) => file.current === undefined && file.path !== VAULT_MAP) : [];
   const files = [...owned, ...starter].map((file) => ({ path: file.path, outcome: outcomeOf(file) }));
   const written = [...owned, ...starter].filter(changes);
   for (const file of written) {
@@ -63,9 +71,16 @@ async function planFiles(source: string, vault: string): Promise<PlannedFile[]> 
 
 // Pi loads the package when it runs at the vault root and the user trusts the vault.
 async function planSettings(repo: string, vault: string): Promise<PlannedFile> {
-  const path = join(".pi", "settings.json");
   const content = Buffer.from(`${JSON.stringify({ packages: [resolve(repo)] }, null, 2)}\n`);
-  return { path, content, current: await readOptional(join(vault, path)) };
+  return { path: SETTINGS, content, current: await readOptional(join(vault, SETTINGS)) };
+}
+
+// The starter map, for a vault without AGENTS.md that Mirror has not projected before, or in place of Mirror's former instructions.
+// A vault that has the settings and no AGENTS.md is one whose user deleted the map: it stays deleted.
+async function planMap(repo: string, vault: string): Promise<PlannedFile | undefined> {
+  const current = await readOptional(join(vault, VAULT_MAP));
+  const wanted = current === undefined ? (await readOptional(join(vault, SETTINGS))) === undefined : current.toString("utf8").startsWith(FORMER_INSTRUCTIONS);
+  return wanted ? { path: VAULT_MAP, content: await readFile(join(repo, "starter", VAULT_MAP)), current } : undefined;
 }
 
 function changes(file: PlannedFile): boolean {

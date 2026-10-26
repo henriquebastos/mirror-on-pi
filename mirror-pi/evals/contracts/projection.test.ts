@@ -43,7 +43,7 @@ test("a new vault gets its own Git repository, Mirror's files, and the starter c
   assert.equal(outcome(projection, ".agents/skills/soul/SKILL.md"), "created");
   assert.equal(outcome(projection, "identity/ego/constraints.md"), "created");
   assert.equal(outcome(projection, "journeys/health/AGENTS.md"), "created");
-  assert.equal(await readFile(join(vault, "AGENTS.md"), "utf8"), await readFile(join(REPO, "vault", "AGENTS.md"), "utf8"));
+  assert.equal(await readFile(join(vault, "AGENTS.md"), "utf8"), await readFile(join(REPO, "starter", "AGENTS.md"), "utf8"), "the vault gets the starter map");
   assert.equal(git(vault, "rev-list", "--count", "HEAD"), "1");
   assert.equal(git(vault, "rev-parse", "HEAD"), projection.commit);
   assert.match(git(vault, "log", "-1", "--format=%s"), /^chore: project Mirror [0-9a-f]{7}/);
@@ -63,26 +63,52 @@ test("projecting again changes nothing and makes no commit", async () => {
 test("a committed edit of a Mirror file is replaced, and Git keeps the edit in history", async () => {
   const vault = join(await tempDir(), "vault");
   await project(vault);
-  await writeFile(join(vault, "AGENTS.md"), "my own instructions\n");
-  git(vault, "commit", "-qam", "edit AGENTS.md");
+  await writeFile(join(vault, "README.md"), "my own readme\n");
+  git(vault, "commit", "-qam", "edit README.md");
+  const projection = await project(vault);
+
+  assert.equal(outcome(projection, "README.md"), "updated");
+  assert.equal(await readFile(join(vault, "README.md"), "utf8"), await readFile(join(REPO, "vault", "README.md"), "utf8"));
+  assert.equal(git(vault, "show", "HEAD~1:README.md"), "my own readme");
+});
+
+test("the vault's AGENTS.md is the user's map: an edit stays, and a deleted map is not copied again", async () => {
+  const vault = join(await tempDir(), "vault");
+  await project(vault);
+  await writeFile(join(vault, "AGENTS.md"), "# My map\n");
+  git(vault, "commit", "-qam", "my map");
+  assert.equal(outcome(await project(vault), "AGENTS.md"), undefined);
+  assert.equal(await readFile(join(vault, "AGENTS.md"), "utf8"), "# My map\n");
+
+  git(vault, "rm", "-q", "AGENTS.md");
+  git(vault, "commit", "-qm", "no map");
+  assert.equal(outcome(await project(vault), "AGENTS.md"), undefined);
+  assert.equal(existsSync(join(vault, "AGENTS.md")), false);
+});
+
+test("Mirror's former instructions in AGENTS.md are replaced once by the starter map", async () => {
+  const vault = join(await tempDir(), "vault");
+  await project(vault);
+  await writeFile(join(vault, "AGENTS.md"), "# Mirror\n\nThis directory is a Mirror vault. Pi runs here, at the vault root.\n");
+  git(vault, "commit", "-qam", "chore: project Mirror 42068ad");
   const projection = await project(vault);
 
   assert.equal(outcome(projection, "AGENTS.md"), "updated");
-  assert.equal(await readFile(join(vault, "AGENTS.md"), "utf8"), await readFile(join(REPO, "vault", "AGENTS.md"), "utf8"));
-  assert.equal(git(vault, "show", "HEAD~1:AGENTS.md"), "my own instructions");
+  assert.equal(await readFile(join(vault, "AGENTS.md"), "utf8"), await readFile(join(REPO, "starter", "AGENTS.md"), "utf8"));
+  assert.equal(git(vault, "status", "--porcelain"), "", "the replacement is committed");
 });
 
 test("an uncommitted edit of a Mirror file stops the projection before it writes anything", async () => {
   const vault = join(await tempDir(), "vault");
   await project(vault);
-  await writeFile(join(vault, "AGENTS.md"), "uncommitted\n");
-  await rm(join(vault, "README.md"));
+  await writeFile(join(vault, "README.md"), "uncommitted\n");
+  await rm(join(vault, ".agents", "skills", "soul", "SKILL.md"));
   const projection = await projectVault(REPO, vault);
 
   assert.ok(!projection.ok);
-  assert.match(projection.error, /AGENTS\.md/);
-  assert.equal(await readFile(join(vault, "AGENTS.md"), "utf8"), "uncommitted\n");
-  assert.equal(existsSync(join(vault, "README.md")), false, "no other Mirror file was written");
+  assert.match(projection.error, /README\.md/);
+  assert.equal(await readFile(join(vault, "README.md"), "utf8"), "uncommitted\n");
+  assert.equal(existsSync(join(vault, ".agents", "skills", "soul", "SKILL.md")), false, "no other Mirror file was written");
   assert.equal(git(vault, "rev-list", "--count", "HEAD"), "1");
 });
 
@@ -97,13 +123,13 @@ test("the user's content stays the user's: edits, deletions, records, and staged
   await writeFile(join(vault, "journeys", "health", "journal", "entry.md"), "a record\n");
   await writeFile(join(vault, "notes.md"), "staged\n");
   git(vault, "add", "notes.md");
-  await writeFile(join(vault, "AGENTS.md"), "x\n");
-  git(vault, "commit", "-qm", "edit AGENTS.md", "--", "AGENTS.md");
+  await writeFile(join(vault, "README.md"), "x\n");
+  git(vault, "commit", "-qm", "edit README.md", "--", "README.md");
   await project(vault);
 
   assert.equal(await readFile(join(vault, "identity", "user", "identity.md"), "utf8"), "# Me\n");
   assert.equal(existsSync(join(vault, "journeys", "career")), false, "a deleted starter journey is not copied again");
-  assert.deepEqual(git(vault, "show", "--name-only", "--format=", "HEAD").split("\n"), ["AGENTS.md"], "the projection commits only its own files");
+  assert.deepEqual(git(vault, "show", "--name-only", "--format=", "HEAD").split("\n"), ["README.md"], "the projection commits only its own files");
   assert.equal(git(vault, "status", "--porcelain"), "A  notes.md\n?? journeys/health/journal/".trim());
 });
 
@@ -125,7 +151,8 @@ test("a vault with its own identity, such as a migrated one, gets no starter con
   await writeFile(join(vault, "identity", "user", "identity.md"), "# Me\n");
   const projection = await project(vault);
 
-  assert.equal(outcome(projection, "AGENTS.md"), "created", "Mirror's own files are projected");
+  assert.equal(outcome(projection, "README.md"), "created", "Mirror's own files are projected");
+  assert.equal(outcome(projection, "AGENTS.md"), "created", "a vault that Mirror has not projected before gets the starter map");
   assert.deepEqual(projection.files.filter((file) => /^(identity|journeys)\//.test(file.path)), [], "no starter file is copied");
   assert.equal(existsSync(join(vault, "journeys")), false);
   assert.equal(await readFile(join(vault, "identity", "user", "identity.md"), "utf8"), "# Me\n");
@@ -134,10 +161,10 @@ test("a vault with its own identity, such as a migrated one, gets no starter con
 test("an existing directory whose Mirror files already match gets them committed", async () => {
   const vault = join(await tempDir(), "vault");
   await mkdir(vault);
-  await writeFile(join(vault, "AGENTS.md"), await readFile(join(REPO, "vault", "AGENTS.md")));
+  await writeFile(join(vault, "README.md"), await readFile(join(REPO, "vault", "README.md")));
   const projection = await project(vault);
 
-  assert.equal(outcome(projection, "AGENTS.md"), "kept");
+  assert.equal(outcome(projection, "README.md"), "kept");
   assert.notEqual(projection.commit, undefined);
   assert.equal(git(vault, "status", "--porcelain"), "", "every Mirror file is committed");
 });
@@ -150,10 +177,10 @@ test("the mirror-init command reports each file and refuses uncommitted Mirror f
   assert.match(first.stdout, /^created AGENTS\.md$/m);
   assert.match(first.stdout, /^Committed [0-9a-f]{7} in /m);
 
-  await writeFile(join(vault, "AGENTS.md"), "uncommitted\n");
+  await writeFile(join(vault, "README.md"), "uncommitted\n");
   const refused = spawnSync(command, [vault], { encoding: "utf8" });
   assert.equal(refused.status, 1);
-  assert.match(refused.stderr, /Uncommitted changes in files that Mirror owns: AGENTS\.md/);
+  assert.match(refused.stderr, /Uncommitted changes in files that Mirror owns: README\.md/);
 
   assert.equal(spawnSync(command, [], { encoding: "utf8" }).status, 2);
 });

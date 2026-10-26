@@ -2,7 +2,7 @@
 
 Mirror is a reflective companion that runs as plain Pi sessions at the root of a Markdown vault.
 Each journey is a directory with the present state of one part of your life. A session starts without a journey; when the topic fits one, the mirror enters it and says so. If it chose wrong, tell it.
-Memory is Pi's own session files: the model searches the earlier sessions of every journey with `jq` and `rg`, as the vault's `AGENTS.md` instructs.
+Memory is Pi's own session files: the model searches the earlier sessions of every journey with `jq` and `rg`, as Mirror's instructions say.
 A few small Mirror extensions enter journeys, save journal entries and corrections, and append identity integrations you agree to in Soul Mode.
 
 This repository is the code. A vault is a separate directory with its own Git repository. `scripts/mirror-init.sh <vault>` projects the repository into a vault: it creates the vault and its Git repository when needed, writes the files Mirror owns, copies the starter content into a new vault, and commits what changed. Run it again to update a vault. It never touches your own files.
@@ -49,11 +49,12 @@ It starts only when the installed `pi` is the version this repository pins and t
 
 | Part | Owner | Location |
 |---|---|---|
-| Mirror's instructions, including how to search earlier sessions | Mirror, projected into the vault | `vault/AGENTS.md` |
+| Mirror's instructions, including how to search earlier sessions | Mirror, added to the system prompt in a vault session, not in a subagent | `mirror-pi/instructions.md` |
+| The vault map, `AGENTS.md`, with the list of journeys outside `journeys/` | You, after `mirror-init` copies the starter map once | `starter/AGENTS.md` |
 | Identity and journeys | You, after `mirror-init` copies the starter content into a new vault | `starter/` |
 | Journal, corrections, your files | You, in the vault | The vault |
 | Conversation history and memory | Pi | `<Pi agent directory>/sessions/--<vault path>--/` |
-| Journeys, journal, corrections, identity integrations | One small Pi extension each, loaded as a Pi package from the vault's `.pi/settings.json` | `mirror-pi/extensions/` |
+| Instructions, journeys, journal, corrections, identity | One small Pi extension each, loaded as a Pi package from the vault's `.pi/settings.json` | `mirror-pi/extensions/` |
 | Soul Mode | A Pi skill, projected into the vault | `vault/.agents/skills/soul/` |
 | The projection | `mirror-init` | `mirror-pi/src/projection.ts`, `scripts/mirror-init.sh` |
 | Migration from Mirror Mind | `mirror-migrate` | `mirror-pi/src/mirror-mind.ts`, `mirror-pi/src/migration.ts`, `scripts/mirror-migrate.sh` |

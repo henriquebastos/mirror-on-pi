@@ -5,6 +5,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { identitySection } from "../src/identity-context.ts";
 import { findVault, planIntegration, writeIntegration } from "../src/identity.ts";
+import { isSubagent } from "../src/pi.ts";
 
 export default function identity(pi: ExtensionAPI): void {
   createIdentityExtension()(pi);
@@ -13,7 +14,7 @@ export default function identity(pi: ExtensionAPI): void {
 export function createIdentityExtension(now: () => Date = () => new Date()): (pi: ExtensionAPI) => void {
   return (pi) => {
     pi.on("before_agent_start", async (event, ctx) => {
-      const vault = await findVault(ctx.cwd);
+      const vault = isSubagent() ? undefined : await findVault(ctx.cwd);
       const section = vault === undefined ? undefined : await identitySection(vault);
       if (section !== undefined) event.systemPromptOptions.sections.mirror_identity = section;
     });

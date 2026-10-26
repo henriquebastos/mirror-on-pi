@@ -111,7 +111,7 @@ test("identity rows become identity files and journeys with their text unchanged
   assert.deepEqual((await markdown(join(vault, "identity", "personas", "pai.md"))).frontmatter, { name: "Pai", description: "Lente de paternidade. Ativa com as filhas." });
   assert.deepEqual((await markdown(join(vault, "journeys", "saude", "AGENTS.md"))).frontmatter, { title: "Saúde", status: "active", description: "Sono e energia." });
   assert.deepEqual((await markdown(join(vault, "journeys", "carreira", "AGENTS.md"))).frontmatter, { title: "carreira", status: "active" }, "a journey without YAML keeps its slug as title");
-  assert.deepEqual(await listJourneys(vault), [{ slug: "carreira", description: "Sam pensa em dar aulas." }, { slug: "saude", description: "Sono e energia." }], "archives are not journeys");
+  assert.deepEqual((await listJourneys(vault)).map(({ slug, description }) => ({ slug, description })), [{ slug: "carreira", description: "Sam pensa em dar aulas." }, { slug: "saude", description: "Sono e energia." }], "archives are not journeys");
   assert.deepEqual(await readFile(join(vault, "identity", "user", "report.pdf")), PDF);
   assert.equal(await readFile(join(vault, "identity", "user", "big5.yaml"), "utf8"), "scores:\n  openness: 90\n");
   assert.ok(skipped.includes("identity caminho/velho: no Mirror layer"), "an unknown layer is reported, not guessed");
@@ -139,9 +139,9 @@ test("conversations become Pi sessions of the vault: named, bound to their journ
   assert.equal(boundSlug(wine.getBranch()), undefined, "a conversation of a journey that no longer exists stays without one");
 });
 
-test("the search command of the vault's AGENTS.md finds the migrated conversations", async () => {
+test("the search command of Mirror's instructions finds the migrated conversations", async () => {
   const { vault } = await migrated(await syntheticHome());
-  const instructions = await readFile(join(REPO, "vault", "AGENTS.md"), "utf8");
+  const instructions = await readFile(join(REPO, "mirror-pi", "instructions.md"), "utf8");
   const command = /```sh\n([\s\S]*?)\n\s*```/.exec(instructions)?.[1]?.replace(/rg -i '[^']*'\s*$/, "rg -i 'quartas'");
   assert.ok(command !== undefined);
   const found = execFileSync("bash", ["-c", command], { cwd: vault, encoding: "utf8", env: { ...process.env, PI_CODING_AGENT_DIR: join(vault, ".pi", "agent") } });

@@ -1,5 +1,5 @@
 // Run a real Pi SDK session at the vault root with Mirror's extensions, as a manual session would.
-// Pi loads the vault's AGENTS.md files itself. Only the model and the clock are chosen by the eval.
+// Pi loads the vault's AGENTS.md files itself; the extensions add Mirror's instructions, identity, and journeys. Only the model and the clock are chosen by the eval.
 import { mkdtempSync, realpathSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, sep } from "node:path";
@@ -9,6 +9,7 @@ import { createAgentSession, DefaultResourceLoader, ModelRuntime, SettingsManage
 import type { SessionManager } from "@earendil-works/pi-coding-agent";
 import { createCorrectionsExtension } from "../../extensions/corrections.ts";
 import { createIdentityExtension } from "../../extensions/identity.ts";
+import { createInstructionsExtension } from "../../extensions/instructions.ts";
 import { createJournalExtension } from "../../extensions/journal.ts";
 import { createJourneysExtension } from "../../extensions/journeys.ts";
 import { JOURNEY_ENTRY } from "../../src/journey.ts";
@@ -54,7 +55,7 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
     skillsOverride: (base) => ({ skills: base.skills.filter((skill) => !skill.filePath.startsWith(homedir() + sep)), diagnostics: base.diagnostics }),
     noPromptTemplates: true,
     noThemes: true,
-    extensionFactories: [createJourneysExtension(), createJournalExtension(now), createCorrectionsExtension(now), createIdentityExtension(now)],
+    extensionFactories: [createInstructionsExtension(), createJourneysExtension(), createJournalExtension(now), createCorrectionsExtension(now), createIdentityExtension(now)],
   });
   await loader.reload();
   const { session } = await createAgentSession({

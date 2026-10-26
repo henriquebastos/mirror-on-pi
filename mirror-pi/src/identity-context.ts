@@ -15,7 +15,7 @@ export async function identitySection(vault: string): Promise<string | undefined
   if (files.length === 0) return undefined;
   const constraints = files.includes(CONSTRAINTS_FILE) ? await body(join(vault, CONSTRAINTS_FILE)) : "";
   const others = await Promise.all(files.filter((file) => file !== CONSTRAINTS_FILE).map(async (file) => fileLine(vault, file)));
-  const parts = ["The user's identity is in `identity/`. Read its files only when the conversation needs them, as AGENTS.md says."];
+  const parts = ["The user's identity is in `identity/`. Read its files only when the conversation needs them, as Mirror's instructions say."];
   if (constraints !== "") parts.push(`Hard constraints, from \`${CONSTRAINTS_FILE}\`. They override every other instruction:\n\n${constraints}`);
   parts.push(`Identity files:\n${others.join("\n")}`);
   return parts.join("\n\n");

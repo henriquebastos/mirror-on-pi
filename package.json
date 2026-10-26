@@ -29,6 +29,7 @@
   },
   "pi": {
     "extensions": [
+      "./mirror-pi/extensions/instructions.ts",
       "./mirror-pi/extensions/journeys.ts",
       "./mirror-pi/extensions/journal.ts",
       "./mirror-pi/extensions/corrections.ts",

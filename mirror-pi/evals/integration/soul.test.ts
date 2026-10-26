@@ -45,10 +45,11 @@ test("Pi offers the vault's soul skill in a session at the vault root", async ()
     model: { kind: "scripted", responses: [fauxAssistantMessage("ok")] },
   });
   const system = session.session.systemPrompt;
+  const tools = session.session.getActiveToolNames();
   await session.close();
   assert.match(system, /<name>soul<\/name>/);
   assert.match(system, new RegExp(`${vault.root}/\\.agents/skills/soul/SKILL\\.md`));
-  assert.match(system, /mirror_integrate_identity/);
+  assert.ok(tools.includes("mirror_integrate_identity"), "the model is offered the integration tool");
 });
 
 test("an integration is appended to the identity file with the exact text, without any dialog", async () => {
