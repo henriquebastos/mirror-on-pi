@@ -128,6 +128,7 @@ Behavior that depends on the model, such as entering a fitting journey, followin
 - Pi's default system prompt describes a coding assistant. The vault `AGENTS.md` replaces that role in words only.
 - The model has Pi's default tools, including `bash`, `edit`, and `write`. Only the instructions stop it from editing identity files with them, and from calling `mirror_integrate_identity` before the user agrees. No dialog guards any tool.
 - Soul Mode is instructions only: nothing enforces the ritual's order, and there is no Soul state outside the conversation. A fruit that was not saved stays only in the session file.
+- A migrated session starts at the conversation's start time, but its messages keep Mirror Mind's message times, which can be the time Mirror Mind imported them. Migrated sessions appear in `/resume` with Pi's own. Memory archives are plain Markdown: nothing ranks or deduplicates them.
 - Soul Mode does not record integration provenance beyond the bullet's date. Mirror Mind also keeps an audit record with the origin and conversation.
 - The projection does not delete a Mirror file that was removed from `vault/`. Remove it from the vault by hand.
 - Explorer, tasks, and attachment search are not implemented.
