@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.5 — 2026-10-27
+
+The vault README tells where conversations are for each way to start Pi.
+
+### Changes
+
+- With your own `pi` at the vault root, sessions stay in your Pi session directory, outside the vault. With `scripts/mirror.sh`, they are in the vault's `.pi/agent/sessions/`, and you can commit them. The README no longer says both "commit the sessions" and "conversations are not in the vault" for every vault.
+
+### Validation
+
+- Contract evals 40/40, integration evals 20/20. The change is in the projected `README.md` only; no code or instruction changed, so mutants and behavior evals were not run again.
+
 ## 0.1.4 — 2026-10-27
 
 Mirror reads its content from the directory where the session starts. It does not search parent directories for a vault.
