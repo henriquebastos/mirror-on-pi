@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.4 — 2026-10-27
+
+Mirror reads its content from the directory where the session starts. It does not search parent directories for a vault.
+
+### Changes
+
+- The session's working directory is the content root. Mirror uses `identity/`, the `AGENTS.md` journey map, and `journeys/` only when they are in that directory. Each one is optional and independent of the others.
+- A `JOURNEY.md` in the working directory makes that directory the default journey. The journey list shows it as `./`, and it wins over a mapped journey with the same slug. An explicit `mirror_enter_journey` overrides it for context and records.
+- Mirror's instructions join every session that loads the package, except subagents, also when the directory has no identity and no journeys.
+- `mirror_integrate_identity` refuses to write when the working directory has no `identity/`.
+- **Upgrade:** `scripts/mirror.sh` still starts sessions at the vault root, so sessions through the launcher work as before.
+
+### Validation
+
+- Contract evals 40/40, integration evals 20/20, mutants 69/69 killed.
+- Behavior evals with real models, 14 scenarios over 3 runs: `openai/gpt-6-astra` 42/42 and `openrouter/anthropic/claude-opus-5.5` 42/42.
+
 ## 0.1.3 — 2026-10-26
 
 A journey's context moves to `JOURNEY.md`, and the mirror reads the `AGENTS.md` of the directories it works in.
