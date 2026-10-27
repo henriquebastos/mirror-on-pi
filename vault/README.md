@@ -2,6 +2,8 @@
 
 Open this directory as an Obsidian vault. Start Pi here, at the vault root, to talk with the mirror. When the topic fits a journey, the mirror enters it and says so. If it chose wrong, tell it.
 
+Mirror uses the session cwd as the content root. Identity and journeys work independently when their files exist. A local `JOURNEY.md` makes the starting directory the default journey. Mirror does not search parents for content.
+
 This vault is a Git repository. `mirror-init` in the Mirror repository builds it and updates it:
 
 - It owns this `README.md`, `.agents/skills/`, `.pi/settings.json`, which loads Mirror's extensions once you trust this vault in Pi, and `.pi/.gitignore`. `scripts/mirror.sh` keeps Mirror's Pi settings and sessions in `.pi/agent/`, with a link to your Pi `auth.json`. Commit the sessions with your notes: they are the history of your conversations. Git ignores the auth link, trust decisions, and caches. It writes them on every run and commits the change. Do not edit them here: your edit stops the next run while it is uncommitted, and is replaced once it is committed.

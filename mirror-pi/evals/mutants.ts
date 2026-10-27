@@ -20,20 +20,6 @@ type Mutant = {
 
 const MUTANTS: readonly Mutant[] = [
   {
-    name: "a nested directory does not find its journey",
-    file: "mirror-pi/src/journey.ts",
-    from: "here === journey.dir || here.startsWith(journey.dir + sep)",
-    to: "here === journey.dir",
-    suite: CONTRACTS,
-  },
-  {
-    name: "a directory whose name starts with a journey's name belongs to that journey",
-    file: "mirror-pi/src/journey.ts",
-    from: "here.startsWith(journey.dir + sep)",
-    to: "here.startsWith(journey.dir)",
-    suite: CONTRACTS,
-  },
-  {
     name: "journal overwrites an existing entry",
     file: "mirror-pi/src/records.ts",
     from: 'await writeFile(path, text, { flag: "wx" });',
@@ -162,8 +148,8 @@ const MUTANTS: readonly Mutant[] = [
   {
     name: "the journey's context does not reach the model",
     file: "mirror-pi/extensions/journeys.ts",
-    from: "journeySection(vault, slug);",
-    to: "journeySection(vault, undefined);",
+    from: "journeySection(ctx.cwd, slug);",
+    to: "journeySection(ctx.cwd, undefined);",
     suite: INTEGRATION,
   },
   {
@@ -351,7 +337,7 @@ const MUTANTS: readonly Mutant[] = [
   {
     name: "journeys listed in the map are ignored",
     file: "mirror-pi/src/journey.ts",
-    from: "[...(await listedJourneys(vault)), ...(await journeysDirectory(vault))]",
+    from: "[...(local === undefined ? [] : [local]), ...(await listedJourneys(vault)), ...(await journeysDirectory(vault))]",
     to: "[...(await journeysDirectory(vault))]",
     suite: CONTRACTS,
   },
@@ -421,7 +407,7 @@ const MUTANTS: readonly Mutant[] = [
   {
     name: "a session started in a journey directory gets no journey section",
     file: "mirror-pi/extensions/journeys.ts",
-    from: "?? (await journeyAt(vault, ctx.cwd))?.slug;",
+    from: "?? (await localJourney(ctx.cwd))?.slug;",
     to: "?? undefined;",
     suite: INTEGRATION,
   },
@@ -431,6 +417,90 @@ const MUTANTS: readonly Mutant[] = [
     from: 'join("journeys", entry.key, JOURNEY_FILE)',
     to: 'join("journeys", entry.key, "AGENTS.md")',
     suite: CONTRACTS,
+  },
+  {
+    name: "identity discovery uses the parent instead of cwd",
+    file: "mirror-pi/extensions/identity.ts",
+    from: "await identitySection(ctx.cwd);",
+    to: "await identitySection(`${ctx.cwd}/..`);",
+    suite: INTEGRATION,
+  },
+  {
+    name: "journeys depend on identity again",
+    file: "mirror-pi/extensions/journeys.ts",
+    from: "if (isSubagent()) return;",
+    to: "if (isSubagent() || !(await import(\"node:fs\")).existsSync(`${ctx.cwd}/identity`)) return;",
+    suite: INTEGRATION,
+  },
+  {
+    name: "instructions depend on identity again",
+    file: "mirror-pi/extensions/instructions.ts",
+    from: "if (isSubagent()) return;",
+    to: "if (isSubagent() || !(await import(\"node:fs\")).existsSync(`${process.cwd()}/identity`)) return;",
+    suite: INTEGRATION,
+  },
+  {
+    name: "an empty cwd gets an empty journey section",
+    file: "mirror-pi/src/journey.ts",
+    from: "if (journeys.length === 0 && slug === undefined) return undefined;",
+    to: "",
+    suite: INTEGRATION,
+  },
+  {
+    name: "local JOURNEY.md is ignored",
+    file: "mirror-pi/src/journey.ts",
+    from: "const local = await localJourney(vault);",
+    to: "const local = undefined;",
+    suite: CONTRACTS,
+  },
+  {
+    name: "a directory named JOURNEY.md is a journey",
+    file: "mirror-pi/src/journey.ts",
+    from: "?.isFile() !== true",
+    to: "?.isDirectory() !== true",
+    suite: CONTRACTS,
+  },
+  {
+    name: "the map replaces the local journey with the same slug",
+    file: "mirror-pi/src/journey.ts",
+    from: "[...(local === undefined ? [] : [local]), ...(await listedJourneys(vault)), ...(await journeysDirectory(vault))]",
+    to: "[...(await listedJourneys(vault)), ...(local === undefined ? [] : [local]), ...(await journeysDirectory(vault))]",
+    suite: CONTRACTS,
+  },
+  {
+    name: "records ignore the local journey",
+    file: "mirror-pi/src/pi.ts",
+    from: "slug === undefined ? await localJourney(ctx.cwd) :",
+    to: "slug === undefined ? undefined :",
+    suite: INTEGRATION,
+  },
+  {
+    name: "identity integration creates structure that is absent from cwd",
+    file: "mirror-pi/src/identity.ts",
+    from: "if (!(await isDirectory(join(vault, \"identity\")))) return err(`No identity/ directory in ${vault}`);",
+    to: "",
+    suite: INTEGRATION,
+  },
+  {
+    name: "an explicit binding cannot override the local journey",
+    file: "mirror-pi/extensions/journeys.ts",
+    from: "boundSlug(ctx.sessionManager.getBranch()) ?? (await localJourney(ctx.cwd))?.slug",
+    to: "(await localJourney(ctx.cwd))?.slug ?? boundSlug(ctx.sessionManager.getBranch())",
+    suite: INTEGRATION,
+  },
+  {
+    name: "a switch from the cwd journey loses its origin",
+    file: "mirror-pi/extensions/journeys.ts",
+    from: "const from = boundSlug(ctx.sessionManager.getBranch()) ?? (await localJourney(ctx.cwd))?.slug ?? null;",
+    to: "const from = boundSlug(ctx.sessionManager.getBranch()) ?? null;",
+    suite: INTEGRATION,
+  },
+  {
+    name: "records prefer the local default over the explicit binding",
+    file: "mirror-pi/src/pi.ts",
+    from: "slug === undefined ? await localJourney(ctx.cwd) : await findJourneyBySlug(ctx.cwd, slug)",
+    to: "(await localJourney(ctx.cwd)) ?? (slug === undefined ? undefined : await findJourneyBySlug(ctx.cwd, slug))",
+    suite: INTEGRATION,
   },
 ];
 

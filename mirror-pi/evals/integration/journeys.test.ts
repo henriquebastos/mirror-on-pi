@@ -157,9 +157,94 @@ test("a journey's context is its JOURNEY.md, also in a session started in the jo
   assert.doesNotMatch(bound.system, /Indent code with tabs/, "the journey's AGENTS.md is not its context");
 
   const inside = await atRoot(vault, ["Where do we start?"], [reply("Here.")], { cwd: vault.journey("career") });
-  assert.match(inside.system, /This session is in the journey `career`\. Directory `journeys\/career\/`\./);
+  assert.match(inside.system, /This session is in the journey `career`\. Directory `\.\/`\./);
   assert.match(inside.system, /# Journey: Career/);
   assert.match(inside.system, /Indent code with tabs/, "Pi loads the AGENTS.md of the starting directory");
+});
+
+test("journeys work without identity, including entry, context, and records", async () => {
+  const vault = await tempVault();
+  await rm(join(vault.root, "identity"), { recursive: true });
+  const seen: TranscriptContext[] = [];
+  const { system, sessionManager } = await atRoot(vault, ["Enter health and save my note.", "Thanks."], [
+    callTool("mirror_enter_journey", { slug: "health", reason: "Sleep." }),
+    callTool("mirror_save_journal", { title: "Rest", body: "Rest helps." }),
+    observe(seen, "Saved."),
+    reply("You are welcome."),
+  ]);
+  assert.match(system, /<mirror_instructions>/);
+  assert.doesNotMatch(system, /<mirror_identity>/);
+  assert.match(system, /# Journey: Health/);
+  assert.deepEqual(customData(sessionManager, JOURNEY_ENTRY), [{ slug: "health", from: null, reason: "Sleep." }]);
+  assert.match(messagesText(seen[0]), /Saved journal/);
+  assert.equal((await readdir(join(vault.journey("health"), "journal"))).length, 1);
+});
+
+test("identity works without a journey map or journeys directory", async () => {
+  const vault = await tempVault();
+  await rm(join(vault.root, "journeys"), { recursive: true });
+  await rm(join(vault.root, "AGENTS.md"));
+  const { system } = await atRoot(vault, ["Hello."], [reply("Hello.")]);
+  assert.match(system, /<mirror_instructions>/);
+  assert.match(system, /<mirror_identity>/);
+  assert.match(system, /Do not invent facts about the user's life/);
+  assert.doesNotMatch(system, /<mirror_journey>/);
+});
+
+test("a nested session uses only its cwd structure, never its parent's Mirror content or record destinations", async () => {
+  const vault = await tempVault();
+  const cwd = join(vault.journey("career"), "files");
+  await mkdir(cwd);
+  const seen: TranscriptContext[] = [];
+  const { system } = await atRoot(vault, ["Try these operations."], [
+    callTool("mirror_enter_journey", { slug: "health", reason: "Sleep." }),
+    callTool("mirror_save_journal", { title: "Rest", body: "Rest helps." }),
+    callTool("mirror_record_correction", { topic: "Sleep", previous: "Early", corrected: "Late" }),
+    callTool("mirror_integrate_identity", { layer: "self", text: "I keep my center." }),
+    observe(seen, "Refused."),
+  ], { cwd });
+  assert.match(system, /<mirror_instructions>/);
+  assert.doesNotMatch(system, /<mirror_identity>|<mirror_journey>/);
+  assert.match(messagesText(seen[0]), /There is no journey health/);
+  assert.match(messagesText(seen[0]), /This session has no journey/);
+  assert.match(messagesText(seen[0]), /No identity\/ directory in/);
+  await assert.rejects(readdir(join(vault.journey("health"), "journal")));
+  await assert.rejects(readdir(join(vault.journey("career"), "journal")));
+  await assert.rejects(readdir(join(cwd, "identity")));
+  assert.doesNotMatch(await readFile(join(vault.root, "identity/self/soul.md"), "utf8"), /I keep my center/);
+});
+
+test("a cwd JOURNEY.md supplies context and records without identity or a parent map", async () => {
+  const vault = await tempVault();
+  const cwd = vault.journey("career");
+  const seen: TranscriptContext[] = [];
+  const { system } = await atRoot(vault, ["Save this journal and correction."], [
+    callTool("mirror_save_journal", { title: "Teaching", body: "I chose teaching." }),
+    callTool("mirror_record_correction", { topic: "Course day", previous: "Tuesday", corrected: "Wednesday" }),
+    observe(seen, "Saved both."),
+  ], { cwd });
+  assert.match(system, /# Journey: Career/);
+  assert.doesNotMatch(system, /# Journey: Health|<mirror_identity>/);
+  assert.match(messagesText(seen[0]), /Saved journal/);
+  assert.match(messagesText(seen[0]), /Saved correction/);
+  assert.equal((await readdir(join(cwd, "journal"))).length, 1);
+  assert.equal((await readdir(join(cwd, "corrections"))).length, 1);
+});
+
+test("an explicit journey entry overrides the cwd JOURNEY.md for context and records", async () => {
+  const vault = await tempVault();
+  await writeFile(join(vault.root, "JOURNEY.md"), "# Local journey\n\nLocal context only.\n");
+  const { system, sessionManager } = await atRoot(vault, ["Save my career note.", "Thanks."], [
+    callTool("mirror_enter_journey", { slug: "career", reason: "Teaching." }),
+    callTool("mirror_save_journal", { title: "Teaching", body: "I chose teaching." }),
+    reply("Saved."),
+    reply("You are welcome."),
+  ]);
+  assert.match(system, /# Journey: Career/);
+  assert.deepEqual(customData(sessionManager, JOURNEY_ENTRY), [{ slug: "career", from: "vault", reason: "Teaching." }]);
+  assert.ok(system.lastIndexOf("# Journey: Career") > system.lastIndexOf("# Local journey"), "the latest journey context overrides the initial local context");
+  assert.equal((await readdir(join(vault.journey("career"), "journal"))).length, 1);
+  await assert.rejects(readdir(join(vault.root, "journal")));
 });
 
 test("entering a journey needs no UI: it binds the session, names it, records the reason, and loads the context from the next message", async () => {
@@ -249,6 +334,8 @@ test("a trusted vault loads Mirror's extensions as a Pi package; an untrusted on
 
 test("a journey listed in the vault's map can be anywhere: the mirror enters it, gets its context, and saves its records there", async () => {
   const vault = await tempVault();
+  await rm(join(vault.root, "identity"), { recursive: true });
+  await rm(join(vault.root, "journeys"), { recursive: true });
   const garden = join(vault.root, "projects", "garden");
   await mkdir(garden, { recursive: true });
   await writeFile(join(garden, "JOURNEY.md"), "---\ndescription: Raised beds and the compost.\n---\n# Journey: Garden\n\nThe beds face south.\n");

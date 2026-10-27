@@ -1,10 +1,10 @@
 // A journey is a directory that holds one durable topic of the user's life: a directory directly below the vault's
 // `journeys/`, or a directory listed in the `## Journeys` section of the vault's AGENTS.md, which can be anywhere in the vault.
 // A session enters a journey when the model enters it, following the user; the latest `mirror-journey` entry on the
-// session branch names the journey. A session started inside a journey directory belongs to that journey.
+// session branch names the journey. A JOURNEY.md in the cwd supplies the default journey, without a parent search.
 // A journey's `JOURNEY.md` holds its context for the mirror only. It is not an AGENTS.md, so other agents do not load it.
 import { readdir, readFile, stat } from "node:fs/promises";
-import { join, relative, resolve, sep } from "node:path";
+import { basename, join, relative, resolve, sep } from "node:path";
 import { isRecord, stringField } from "./json.ts";
 import { parseMarkdown } from "./markdown.ts";
 
@@ -47,26 +47,27 @@ export function boundSlug(branch: readonly EntryLike[]): string | undefined {
   return isRecord(entry?.data) ? stringField(entry.data, "slug") : undefined;
 }
 
-// Every journey of the vault, sorted by slug. A listed journey comes before a directory below `journeys/` with the same slug.
+// Every local journey, sorted by slug. For the same slug, cwd precedes the map, which precedes `journeys/`.
 // A listed directory that does not exist on this machine, or that is not inside the vault, is left out.
 export async function listJourneys(vault: string): Promise<JourneySummary[]> {
   const found = new Map<string, Journey>();
-  for (const journey of [...(await listedJourneys(vault)), ...(await journeysDirectory(vault))]) {
+  const local = await localJourney(vault);
+  for (const journey of [...(local === undefined ? [] : [local]), ...(await listedJourneys(vault)), ...(await journeysDirectory(vault))]) {
     if (!found.has(journey.slug)) found.set(journey.slug, journey);
   }
   const journeys = [...found.values()].sort((a, b) => a.slug.localeCompare(b.slug));
-  return Promise.all(journeys.map(async (journey) => ({ ...journey, path: `${relative(vault, journey.dir)}/`, description: await journeyDescription(journey) })));
+  return Promise.all(journeys.map(async (journey) => ({ ...journey, path: journey.dir === resolve(vault) ? "./" : `${relative(vault, journey.dir)}/`, description: await journeyDescription(journey) })));
 }
 
 export async function findJourneyBySlug(vault: string, slug: string): Promise<JourneySummary | undefined> {
   return (await listJourneys(vault)).find((journey) => journey.slug === slug);
 }
 
-// The journey whose directory is the working directory or one of its parents; the deepest one when journeys are nested.
-export async function journeyAt(vault: string, cwd: string): Promise<JourneySummary | undefined> {
-  const here = resolve(cwd);
-  const containing = (await listJourneys(vault)).filter((journey) => here === journey.dir || here.startsWith(journey.dir + sep));
-  return containing.sort((a, b) => b.dir.length - a.dir.length)[0];
+// A JOURNEY.md in the session directory makes that directory the default journey. No parent is searched.
+export async function localJourney(cwd: string): Promise<Journey | undefined> {
+  if ((await stat(join(cwd, JOURNEY_FILE)).catch(() => undefined))?.isFile() !== true) return undefined;
+  const dir = resolve(cwd);
+  return { dir, slug: basename(dir) };
 }
 
 async function listedJourneys(vault: string): Promise<Journey[]> {
@@ -110,8 +111,9 @@ export async function readJourneyContext(journey: Journey): Promise<string> {
 }
 
 // The mirror_journey system prompt section: the session's journey and its context, or the journeys to choose from.
-export async function journeySection(vault: string, slug: string | undefined): Promise<string> {
+export async function journeySection(vault: string, slug: string | undefined): Promise<string | undefined> {
   const journeys = await listJourneys(vault);
+  if (journeys.length === 0 && slug === undefined) return undefined;
   if (slug === undefined) {
     const list = journeys.map((journey) => `- \`${journey.slug}\` in \`${journey.path}\`: ${journey.description}`).join("\n");
     return `This session has no journey yet.\n\nJourneys in this vault:\n${list}`;

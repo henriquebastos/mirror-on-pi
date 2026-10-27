@@ -1,6 +1,6 @@
 # Mirror
 
-Mirror is a reflective companion that runs as plain Pi sessions at the root of a Markdown vault.
+Mirror is a reflective companion that runs as plain Pi sessions. The session cwd is the content root. Mirror uses the identity, journey map, and journeys that exist there, without searching parents.
 Each journey is a directory with the present state of one part of your life. A session starts without a journey; when the topic fits one, the mirror enters it and says so. If it chose wrong, tell it.
 Memory is Pi's own session files: the model searches the earlier sessions of every journey with `jq` and `rg`, as Mirror's instructions say.
 A few small Mirror extensions enter journeys, save journal entries and corrections, and append identity integrations you agree to in Soul Mode.

@@ -3,7 +3,7 @@
 // Every existing line stays, in order. Nothing is replaced or removed.
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { err, ok, type Result } from "./result.ts";
 import { validateSlug } from "./slug.ts";
 
@@ -32,19 +32,9 @@ const SECTIONS: Readonly<Record<IntegrationLayer, string>> = {
   persona: "New Participation Patterns Revealed",
 };
 
-// The vault root is the nearest directory at or above `cwd` that holds an `identity/` directory.
-export async function findVault(cwd: string): Promise<string | undefined> {
-  let dir = resolve(cwd);
-  for (;;) {
-    if (await isDirectory(join(dir, "identity"))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return undefined;
-    dir = parent;
-  }
-}
-
 // Validate the input and name the file, section, and exact bullet. Nothing is written.
 export async function planIntegration(vault: string, input: IntegrationInput, now: Date): Promise<Result<IntegrationTarget, string>> {
+  if (!(await isDirectory(join(vault, "identity")))) return err(`No identity/ directory in ${vault}`);
   const text = input.text.trim();
   if (text === "") return err("The integration text is empty");
   if (/[\r\n]/.test(text)) return err("The integration text must be one paragraph on one line");

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
-import { journeyAt, listJourneys } from "../../src/journey.ts";
+import { localJourney, listJourneys } from "../../src/journey.ts";
 import { tempVault, type EvalVault } from "../support/content.ts";
 
 // A vault whose map lists a journey outside `journeys/`, with list items that are not journeys.
@@ -45,20 +45,31 @@ test("a listed journey whose directory is missing, outside the vault, or outside
   for (const slug of ["boat", "outside", "notes", "recipes"]) assert.ok(!slugs.includes(slug), `${slug} is not a journey`);
 });
 
-test("a session belongs to the journey directory at or above its working directory", async () => {
+test("a local JOURNEY.md defines the default journey without searching parents", async () => {
   const vault = await vaultWithMap(MAP);
-  assert.equal((await journeyAt(vault.root, vault.journey("career")))?.slug, "career");
-  const nested = join(vault.journey("health"), "files", "scans");
+  const cwd = vault.journey("career");
+  assert.deepEqual(await localJourney(cwd), { dir: cwd, slug: "career" });
+  assert.deepEqual((await listJourneys(cwd)).map((journey) => [journey.slug, journey.path]), [["career", "./"]]);
+  const nested = join(cwd, "files", "scans");
   await mkdir(nested, { recursive: true });
-  assert.equal((await journeyAt(vault.root, nested))?.slug, "health");
-  assert.equal((await journeyAt(vault.root, join(vault.root, "projects", "garden")))?.slug, "garden");
+  assert.equal(await localJourney(nested), undefined);
+  assert.deepEqual(await listJourneys(nested), []);
+  assert.equal(await localJourney(vault.root), undefined);
 });
 
-test("directories outside a journey have no journey", async () => {
-  const vault = await vaultWithMap(MAP);
-  assert.equal(await journeyAt(vault.root, vault.root), undefined);
-  assert.equal(await journeyAt(vault.root, join(vault.root, "journeys")), undefined);
-  assert.equal(await journeyAt(vault.root, join(vault.root, "projects")), undefined);
-  assert.equal(await journeyAt(vault.root, join(vault.root, "projects", "garden-old")), undefined);
-  assert.equal(await journeyAt(vault.root, join(vault.root, "identity", "self")), undefined);
+test("the local journey takes its directory name and precedes a mapped journey with the same slug", async () => {
+  const vault = await tempVault();
+  const cwd = vault.journey("career");
+  await mkdir(join(cwd, "elsewhere"));
+  await writeFile(join(cwd, "AGENTS.md"), "## Journeys\n\n- `career`: `elsewhere/`\n");
+  const journeys = await listJourneys(cwd);
+  assert.equal(journeys.length, 1);
+  assert.equal(journeys[0]?.dir, cwd);
+  assert.equal(journeys[0].path, "./");
+});
+
+test("a directory named JOURNEY.md is not a local journey", async () => {
+  const vault = await tempVault();
+  await mkdir(join(vault.root, "JOURNEY.md"));
+  assert.equal(await localJourney(vault.root), undefined);
 });

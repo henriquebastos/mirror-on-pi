@@ -2,8 +2,7 @@
 // and the journey's context joins the system prompt from the next message on. The user corrects a wrong journey in the chat.
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { findVault } from "../src/identity.ts";
-import { boundSlug, JOURNEY_ENTRY, journeyAt, journeySection, listJourneys, type JourneyEntry } from "../src/journey.ts";
+import { boundSlug, JOURNEY_ENTRY, localJourney, journeySection, listJourneys, type JourneyEntry } from "../src/journey.ts";
 import { isSubagent, type ToolText } from "../src/pi.ts";
 
 export default function journeys(pi: ExtensionAPI): void {
@@ -13,11 +12,11 @@ export default function journeys(pi: ExtensionAPI): void {
 export function createJourneysExtension(): (pi: ExtensionAPI) => void {
   return (pi) => {
     pi.on("before_agent_start", async (event, ctx) => {
-      const vault = isSubagent() ? undefined : await findVault(ctx.cwd);
-      if (vault === undefined) return;
-      // A session started in a journey directory belongs to that journey until it enters another one.
-      const slug = boundSlug(ctx.sessionManager.getBranch()) ?? (await journeyAt(vault, ctx.cwd))?.slug;
-      event.systemPromptOptions.sections.mirror_journey = await journeySection(vault, slug);
+      if (isSubagent()) return;
+      // A local JOURNEY.md supplies the default until the session explicitly enters another journey.
+      const slug = boundSlug(ctx.sessionManager.getBranch()) ?? (await localJourney(ctx.cwd))?.slug;
+      const section = await journeySection(ctx.cwd, slug);
+      if (section !== undefined) event.systemPromptOptions.sections.mirror_journey = section;
     });
 
     pi.registerTool({
@@ -36,12 +35,10 @@ export function createJourneysExtension(): (pi: ExtensionAPI) => void {
 }
 
 async function enterJourney(pi: ExtensionAPI, ctx: ExtensionContext, slug: string, reason: string): Promise<ToolText> {
-  const vault = await findVault(ctx.cwd);
-  if (vault === undefined) throw new Error(`No identity/ directory at or above ${ctx.cwd}. This is not a Mirror vault.`);
-  const journeys = await listJourneys(vault);
+  const journeys = await listJourneys(ctx.cwd);
   const journey = journeys.find((item) => item.slug === slug);
   if (journey === undefined) throw new Error(`There is no journey ${slug}. Journeys: ${journeys.map((item) => item.slug).join(", ")}.`);
-  const from = boundSlug(ctx.sessionManager.getBranch()) ?? null;
+  const from = boundSlug(ctx.sessionManager.getBranch()) ?? (await localJourney(ctx.cwd))?.slug ?? null;
   if (from === slug) return text(`The session is already in the journey ${slug}.`, { slug });
   pi.appendEntry<JourneyEntry>(JOURNEY_ENTRY, { slug, from, reason });
   pi.setSessionName(slug);

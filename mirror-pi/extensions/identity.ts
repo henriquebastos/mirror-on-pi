@@ -4,7 +4,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { identitySection } from "../src/identity-context.ts";
-import { findVault, planIntegration, writeIntegration } from "../src/identity.ts";
+import { planIntegration, writeIntegration } from "../src/identity.ts";
 import { isSubagent } from "../src/pi.ts";
 
 export default function identity(pi: ExtensionAPI): void {
@@ -14,8 +14,8 @@ export default function identity(pi: ExtensionAPI): void {
 export function createIdentityExtension(now: () => Date = () => new Date()): (pi: ExtensionAPI) => void {
   return (pi) => {
     pi.on("before_agent_start", async (event, ctx) => {
-      const vault = isSubagent() ? undefined : await findVault(ctx.cwd);
-      const section = vault === undefined ? undefined : await identitySection(vault);
+      if (isSubagent()) return;
+      const section = await identitySection(ctx.cwd);
       if (section !== undefined) event.systemPromptOptions.sections.mirror_identity = section;
     });
 
@@ -31,9 +31,7 @@ export function createIdentityExtension(now: () => Date = () => new Date()): (pi
         text: Type.String({ minLength: 1, description: "The exact text the user agreed to, as one paragraph" }),
       }),
       execute: async (_id, params, _signal, _update, ctx) => {
-        const vault = await findVault(ctx.cwd);
-        if (vault === undefined) throw new Error(`No identity/ directory at or above ${ctx.cwd}. Nothing was written.`);
-        const target = await planIntegration(vault, { layer: params.layer, persona: params.persona, text: params.text }, now());
+        const target = await planIntegration(ctx.cwd, { layer: params.layer, persona: params.persona, text: params.text }, now());
         if (!target.ok) throw new Error(`${target.error}. Nothing was written.`);
         await writeIntegration(target.value);
         const text = `Added to ${target.value.relativePath} under "## ${target.value.section}": ${target.value.bullet}`;

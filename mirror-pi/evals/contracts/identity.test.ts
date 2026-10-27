@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
-import { appendIntegration, findVault, planIntegration, writeIntegration } from "../../src/identity.ts";
+import { appendIntegration, planIntegration, writeIntegration } from "../../src/identity.ts";
 import { tempVault } from "../support/content.ts";
 
 const fixed = new Date("2026-10-24T08:30:00Z");
@@ -64,9 +64,8 @@ test("empty, multi-line, unknown-persona, and misplaced-persona integrations are
   assert.match(await refused("self", "Text.", "therapist"), /only valid for the persona layer/);
 });
 
-test("writing keeps the identity file's earlier content and the vault is found from a journey directory", async () => {
+test("writing keeps the identity file's earlier content", async () => {
   const vault = await tempVault();
-  assert.equal(await findVault(vault.journey("health")), vault.root);
   const file = join(vault.root, "identity/self/soul.md");
   const before = await readFile(file, "utf8");
   const target = await planIntegration(vault.root, { layer: "self", persona: undefined, text: "I keep my center." }, fixed);

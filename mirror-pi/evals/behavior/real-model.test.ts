@@ -2,7 +2,7 @@
 // Each check is an observable behavior: which tools the model calls and what the answer states.
 // Set MIRROR_EVAL_REPEAT to run each scenario more than once.
 import assert from "node:assert/strict";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -38,8 +38,7 @@ async function devModel(): Promise<EvalModel> {
 
 // Run prompts in one new session at the vault root, stored where Pi stores a manual session, so later sessions can search it.
 // With a journey, the session starts in it, as after mirror_enter_journey. There is no UI: the user speaks only through the prompts.
-async function run(vault: EvalVault, journey: string | undefined, prompts: readonly string[]): Promise<{ readonly turns: readonly Turn[] }> {
-  const cwd = vault.root;
+async function run(vault: EvalVault, journey: string | undefined, prompts: readonly string[], cwd: string = vault.root): Promise<{ readonly turns: readonly Turn[] }> {
   const created = SessionManager.create(cwd);
   const sessionManager = journey === undefined ? created : inJourney(created, journey);
   const opened = await openMirrorSession({ cwd, model: MODEL, sessionManager });
@@ -207,6 +206,33 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     assert.equal(page.split("\n")[0]?.trim(), "<!-- built by the site kit -->", "follows the directory's AGENTS.md");
     assert.match(page, /About Sam/);
     assert.match(publish?.answer ?? "", /--channel=amber/, "answers from the directory's skill");
+  });
+
+  test(`[${String(attempt)}] journeys and records work when identity is absent`, { timeout: 300_000 }, async () => {
+    const vault = await tempVault();
+    await rm(join(vault.root, "identity"), { recursive: true });
+    const session = await run(vault, undefined, ["In the health journey, save a journal entry: I turned off screens at nine and slept at eleven."]);
+    const turn = session.turns[0];
+    record("journeys-without-identity", attempt, { tools: turn?.tools, answer: turn?.answer });
+    assert.deepEqual(identityReads(turn), [], "does not search for missing identity");
+    assert.equal(named(turn, "mirror_enter_journey").length, 1);
+    assert.equal(named(turn, "mirror_save_journal").length, 1);
+    const files = await readdir(join(vault.journey("health"), "journal"));
+    assert.equal(files.length, 1);
+    assert.match(await readFile(join(vault.journey("health"), "journal", files[0] ?? ""), "utf8"), /nine|9/);
+  });
+
+  test(`[${String(attempt)}] a cwd JOURNEY.md works without the parent identity or journey map`, { timeout: 300_000 }, async () => {
+    const vault = await tempVault();
+    const session = await run(vault, undefined, [
+      "What is this journey about? Two sentences.",
+      "Save a journal entry here: I turned off screens at nine and slept at eleven.",
+    ], vault.journey("health"));
+    record("cwd-journey", attempt, { turns: session.turns });
+    assert.match(said(session.turns, 0), /sleep|energy/i);
+    for (const turn of session.turns) assert.deepEqual(identityReads(turn), [], "does not read the parent identity");
+    assert.equal(named(session.turns[1], "mirror_save_journal").length, 1);
+    assert.equal((await readdir(join(vault.journey("health"), "journal"))).length, 1);
   });
 
   test(`[${String(attempt)}] an explicit correction is recorded once and found in a later session`, { timeout: 600_000 }, async () => {

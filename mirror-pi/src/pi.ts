@@ -1,7 +1,6 @@
 // Shared plumbing for Mirror's Pi extensions.
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { findVault } from "./identity.ts";
-import { boundSlug, findJourneyBySlug, journeyAt, type Journey } from "./journey.ts";
+import { boundSlug, findJourneyBySlug, localJourney, type Journey } from "./journey.ts";
 import type { JsonRecord } from "./json.ts";
 import type { RecordReceipt } from "./records.ts";
 import type { Result } from "./result.ts";
@@ -10,10 +9,8 @@ export type ToolText = { content: { type: "text"; text: string }[]; details: Jso
 
 // The journey the session entered, or the journey directory the session started in. Records need one.
 export async function requireJourney(ctx: ExtensionContext): Promise<Journey> {
-  const vault = await findVault(ctx.cwd);
-  if (vault === undefined) throw new Error(`No identity/ directory at or above ${ctx.cwd}. This is not a Mirror vault.`);
   const slug = boundSlug(ctx.sessionManager.getBranch());
-  const journey = slug === undefined ? await journeyAt(vault, ctx.cwd) : await findJourneyBySlug(vault, slug);
+  const journey = slug === undefined ? await localJourney(ctx.cwd) : await findJourneyBySlug(ctx.cwd, slug);
   if (slug !== undefined && journey === undefined) throw new Error(`The journey ${slug} is no longer in the vault. Enter another journey with mirror_enter_journey.`);
   if (journey === undefined) throw new Error("This session has no journey. Propose one with mirror_enter_journey; records are saved only in a journey.");
   return journey;
