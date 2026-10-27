@@ -38,7 +38,7 @@ A session starts at the vault root without a journey. The model enters the journ
 | Records | Journal entries and corrections go to the session's journey. Without one, the tools refuse. |
 
 Reads cross journeys freely: every journey can read every other journey's files and sessions. Only the binding and the records follow the journey.
-A session started inside a journey directory belongs to that journey until it enters another one, and its `mirror_journey` section holds that journey's context.
+A session started inside a journey directory belongs to that journey until it enters another one, and its `mirror_journey` section holds that journey's context. This needs Mirror's extensions in that session: Pi reads `.pi/settings.json` only in the starting directory, so a plain `pi` started in a journey directory loads no Mirror extension. The launcher always starts at the vault root.
 
 ## Directory context
 
@@ -139,6 +139,7 @@ Behavior that depends on the model, such as entering a fitting journey, followin
 - Pi's default system prompt describes a coding assistant. Mirror's instructions add the mirror's role in words only.
 - A directory's `AGENTS.md` and skills below the starting directory reach the model only when it follows the instruction to read them. The behavior eval shows that both models skip them without the instruction.
 - A journey whose context is still in an `AGENTS.md`, from Mirror 0.1.2 or earlier, has no context or description for the mirror until the file is renamed to `JOURNEY.md`.
+- A plain `pi` started below the vault root loads no Mirror extension, because Pi reads the project's `.pi/settings.json` only in the starting directory. That session gets only the `AGENTS.md` files of its directory and the parents.
 - The session search command uses the working directory. In a session started below the vault root, it searches only that directory's sessions. Pi names session directories with `-` for `/`, so the search also reads the sessions of a sibling directory whose name starts with the vault's name and `-`.
 - A subagent is recognized only by the `PI_SUBAGENT_CHILD` variable of pi-subagents. Its Mirror tools stay registered; only the system prompt sections are left out.
 - The model has Pi's default tools, including `bash`, `edit`, and `write`. Only the instructions stop it from editing identity files with them, and from calling `mirror_integrate_identity` before the user agrees. No dialog guards any tool.
