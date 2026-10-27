@@ -40,7 +40,8 @@ test("a new vault gets its own Git repository, Mirror's files, and the starter c
 
   assert.equal(git(vault, "rev-parse", "--show-toplevel"), vault);
   assert.equal(outcome(projection, "AGENTS.md"), "created");
-  assert.equal(outcome(projection, ".agents/skills/soul/SKILL.md"), "created");
+  assert.equal(outcome(projection, ".pi/settings.json"), "created");
+  assert.equal(existsSync(join(vault, ".agents")), false, "the Soul skill comes from the package, not from a copy in the vault");
   assert.equal(outcome(projection, "identity/ego/constraints.md"), "created");
   assert.equal(outcome(projection, "journeys/health/JOURNEY.md"), "created");
   assert.equal(await readFile(join(vault, "AGENTS.md"), "utf8"), await readFile(join(REPO, "starter", "AGENTS.md"), "utf8"), "the vault gets the starter map");
@@ -102,14 +103,55 @@ test("an uncommitted edit of a Mirror file stops the projection before it writes
   const vault = join(await tempDir(), "vault");
   await project(vault);
   await writeFile(join(vault, "README.md"), "uncommitted\n");
-  await rm(join(vault, ".agents", "skills", "soul", "SKILL.md"));
+  await rm(join(vault, ".pi", "settings.json"));
   const projection = await projectVault(REPO, vault);
 
   assert.ok(!projection.ok);
   assert.match(projection.error, /README\.md/);
   assert.equal(await readFile(join(vault, "README.md"), "utf8"), "uncommitted\n");
-  assert.equal(existsSync(join(vault, ".agents", "skills", "soul", "SKILL.md")), false, "no other Mirror file was written");
+  assert.equal(existsSync(join(vault, ".pi", "settings.json")), false, "no other Mirror file was written");
   assert.equal(git(vault, "rev-list", "--count", "HEAD"), "1");
+});
+
+// The Soul skill as Mirror 0.1 projected it, committed in the vault.
+async function formerSkill(vault: string): Promise<readonly string[]> {
+  const files = ["SKILL.md", "voices/beauty.md", "voices/self.md", "voices/shadow.md", "voices/wisdom.md"].map((file) => `.agents/skills/soul/${file}`);
+  for (const file of files) {
+    await mkdir(join(vault, file, ".."), { recursive: true });
+    await writeFile(join(vault, file), `${file}\n`);
+  }
+  git(vault, "add", "--", ...files);
+  git(vault, "commit", "-qm", "chore: project Mirror 7a6cf7a");
+  return files;
+}
+
+test("the Soul skill that Mirror 0.1 projected is deleted in one commit, and Git keeps it in history", async () => {
+  const vault = join(await tempDir(), "vault");
+  await project(vault);
+  const files = await formerSkill(vault);
+  await writeFile(join(vault, ".agents", "skills", "notes.md"), "mine\n");
+  const projection = await project(vault);
+
+  assert.deepEqual(projection.files.filter((file) => file.outcome === "deleted").map((file) => file.path), files);
+  assert.equal(existsSync(join(vault, ".agents", "skills", "soul")), false, "the skill directory is gone");
+  assert.equal(await readFile(join(vault, ".agents", "skills", "notes.md"), "utf8"), "mine\n", "other files under .agents stay");
+  assert.deepEqual(git(vault, "show", "--name-status", "--format=", "HEAD").split("\n"), files.map((file) => `D\t${file}`));
+  assert.equal(git(vault, "show", "HEAD~1:.agents/skills/soul/SKILL.md"), ".agents/skills/soul/SKILL.md");
+  assert.equal(git(vault, "status", "--porcelain"), "?? .agents/");
+  assert.equal((await project(vault)).commit, undefined, "projecting again changes nothing");
+});
+
+test("an uncommitted edit of the former Soul skill stops the projection before it deletes anything", async () => {
+  const vault = join(await tempDir(), "vault");
+  await project(vault);
+  const files = await formerSkill(vault);
+  await writeFile(join(vault, ".agents", "skills", "soul", "voices", "self.md"), "my voice\n");
+  const projection = await projectVault(REPO, vault);
+
+  assert.ok(!projection.ok);
+  assert.match(projection.error, /\.agents\/skills\/soul\/voices\/self\.md/);
+  assert.ok(files.every((file) => existsSync(join(vault, file))), "no file was deleted");
+  assert.equal(await readFile(join(vault, ".agents", "skills", "soul", "voices", "self.md"), "utf8"), "my voice\n");
 });
 
 test("the user's content stays the user's: edits, deletions, records, and staged work", async () => {

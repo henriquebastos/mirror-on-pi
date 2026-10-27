@@ -11,7 +11,7 @@ Mirror is plain Pi with a few small extensions. The session cwd is the content r
 | Subagents | `isSubagent()` in `mirror-pi/src/pi.ts` | In a pi-subagents child process (`PI_SUBAGENT_CHILD=1`), Mirror adds no system prompt section. A subagent is the agent it was started as, with the vault map if it inherits project context. A fork copies the parent's whole prompt, so a fork is still the mirror. |
 | Identity | `identity/` in the vault, from `starter/identity/` | Markdown. The model reads the files only for personal or reflective conversation, not for work. |
 | Identity in every session | `mirror-pi/extensions/identity.ts`, `mirror-pi/src/identity-context.ts` | Before each run, a `mirror_identity` system prompt section holds the hard constraints (`identity/ego/constraints.md`) in full and one line per other identity file, personas with their name and description. A vault without identity files gets no section. |
-| Soul Mode | `vault/.agents/skills/soul/` | A Pi skill in the vault: the ritual in `SKILL.md`, one file per voice in `voices/`. Cards and the fruit live in the conversation. A harvested fruit is saved with `mirror_save_journal`. |
+| Soul Mode | `mirror-pi/skills/soul/` | A Pi skill in the Mirror package: the ritual in `SKILL.md`, one file per voice in `voices/`. Pi offers it only in a session that loads the package, so not in a directory below the vault root. Cards and the fruit live in the conversation. A harvested fruit is saved with `mirror_save_journal`. |
 | Identity integrations | `mirror-pi/extensions/identity.ts` | `mirror_integrate_identity`: after the user agrees in the chat to the exact text, appends a dated bullet to the layer's section (self, shadow, ego, or persona file). |
 | A journey | A directory in the vault | The cwd itself when it holds `JOURNEY.md`, a directory directly below `journeys/`, or a directory listed in the `## Journeys` section of the vault map as `` - `slug`: `path/` ``: the present state of one topic and what is known about it. Its `JOURNEY.md` holds the journey context, for the mirror only: Pi does not load it as a context file, so other agents in that directory do not get it. A listed directory that is missing on this machine, or outside the vault, is not a journey. |
 | Journeys in a session | `mirror-pi/extensions/journeys.ts` | See [Journeys](#journeys). |
@@ -19,7 +19,7 @@ Mirror is plain Pi with a few small extensions. The session cwd is the content r
 | Journal entries | `mirror-pi/extensions/journal.ts` | `mirror_save_journal`: a Markdown file in the session journey's `journal/`. |
 | Corrections | `mirror-pi/extensions/corrections.ts` | `mirror_record_correction`: a Markdown file in the session journey's `corrections/` that states what is true now. |
 | A vault | `mirror-pi/src/projection.ts` | `mirror-init` projects this repository into a vault with its own Git repository. See [Vault projection](#vault-projection). |
-| Loading the extensions | The vault's `.pi/settings.json` | Declares this repository as a Pi package. The `pi` manifest in `package.json` lists the five extensions. Pi loads them after the user trusts the vault. |
+| Loading the extensions | The vault's `.pi/settings.json` | Declares this repository as a Pi package. The `pi` manifest in `package.json` lists the five extensions and the skills directory. Pi loads them after the user trusts the vault, only in a session that starts at the vault root. |
 
 Each Mirror extension does one thing and works without the others. Shared code is in `mirror-pi/src/`.
 [memory-strategies.md](memory-strategies.md) explains why memory is Pi's session files and not AI Memory.
@@ -54,10 +54,11 @@ The repository and a vault are separate directories. Pi loads every `AGENTS.md` 
 
 | Repository | Vault | Rule |
 |---|---|---|
-| `vault/` | `README.md`, `.agents/skills/` | Mirror owns them. Every projection writes them. |
+| `vault/` | `README.md` | Mirror owns it. Every projection writes it. |
 | this repository's path | `.pi/settings.json` | Mirror owns it. It declares this repository as a Pi package. |
 | `vault/.pi/.gitignore` | `.pi/.gitignore` | Mirror owns it. The vault's Git keeps `.pi/agent/sessions/` and `settings.json`, and ignores every other file in `.pi/agent/`. |
 | `starter/AGENTS.md` | `AGENTS.md` | The user's map. Copied into a vault without `AGENTS.md` that Mirror has not projected before, a migrated one too. It replaces, once, the instructions that Mirror 0.1.0 and 0.1.1 kept in that file; an uncommitted edit of them stops the projection. A map the user edited or deleted stays so. |
+| none | `.agents/skills/soul/` | Mirror 0.1 projected the Soul skill here. The projection deletes its five files and the directories they leave empty, and commits the deletion. An uncommitted edit of them stops the projection. |
 | `starter/` | `identity/`, `journeys/` | Copied only into a new vault, one without `AGENTS.md` and without an `identity/` directory (a migrated vault has its own). They never replace a file. Then they are the user's. |
 | none | everything else | Never touched. |
 
@@ -121,8 +122,9 @@ a record on request
 | The search finds what the mirror said, not tool output | The command keeps user and assistant messages only. | same integration test, mutants on the message filter |
 | The launcher runs only the tested Pi version, at the vault root, with Mirror's agent directory in the vault's `.pi/agent`, and keeps the user's settings | The version check and `PI_CODING_AGENT_DIR` in `scripts/mirror.sh`. | `launcher.test.ts` with a fake `pi`, five mutants |
 | The sessions can be committed with the vault, and `auth.json` and trust decisions never are | The projected `.pi/.gitignore` allows only `sessions/` and `settings.json` in `.pi/agent/`. | `projection.test.ts`, two mutants |
-| Mirror's extensions load in a trusted vault, and not in an untrusted one | The vault's `.pi/settings.json` package, under Pi's project trust. | integration "a trusted vault loads Mirror's extensions", mutants on the manifest and on the projected settings |
-| A projection keeps the user's files and work | Starter files only into a new vault and never over a file; a refusal before any write when a Mirror file has uncommitted changes; a commit of only its own files. | `projection.test.ts`, six mutants |
+| Mirror's extensions and Soul skill load at the root of a trusted vault, and not in an untrusted one or below the root | The vault's `.pi/settings.json` package, under Pi's project trust; Pi reads it only in the starting directory. | integration "Mirror's extensions and Soul skill load as a Pi package", mutants on the manifest's extensions and skills and on the projected settings |
+| A projection keeps the user's files and work | Starter files only into a new vault and never over a file; a refusal before any write when a Mirror file or the former Soul skill has uncommitted changes; a commit of only its own files. | `projection.test.ts`, six mutants |
+| A projection deletes the Soul skill that Mirror 0.1 projected, in its commit | The five former files, deleted after the conflict check. | `projection.test.ts`, three mutants |
 | Records never overwrite | Exclusive file creation; a taken name gets the next number. | `records.test.ts`, mutant |
 | An integration writes the exact text it reports | `mirror_integrate_identity` appends the bullet and reports the file and section. | integration "an integration is appended", mutant that reports without writing |
 | The hard constraints reach every run | The `mirror_identity` section holds them in full, without front matter, also when the front matter is broken. | `identity-context.test.ts`, integration "every session at the vault root", three mutants |
@@ -140,7 +142,7 @@ Behavior that depends on the model, such as entering a fitting journey, followin
 - Moving the vault, or cloning it to another path, moves its sessions, but Pi names their directory after the vault path. Earlier sessions stay under the old name, outside the search, until you rename that directory. Renaming a journey leaves earlier bindings with the old name.
 - The projection writes the repository's absolute path into the vault's `.pi/settings.json`. Moving the repository needs a new projection.
 - Mirror never commits the vault's content: its sessions in `.pi/agent/sessions/`, journals, corrections, and identity files. They enter the vault's history when the user commits, with the workflow the user chooses. Only the projection commits, and only Mirror's own files.
-- Started with personal Pi instead of the launcher, a vault session loads personal context files, extensions, and AI Memory capture. The evals do not cover that.
+- Started with personal Pi instead of the launcher, a vault session also loads the personal context files, extensions, and skills, and no check pins the Pi version. The evals do not cover that.
 - Pi's default system prompt describes a coding assistant. Mirror's instructions add the mirror's role in words only.
 - A directory's `AGENTS.md` and skills below the starting directory reach the model only when it follows the instruction to read them. The behavior eval shows that both models skip them without the instruction.
 - A journey whose context is still in an `AGENTS.md`, from Mirror 0.1.2 or earlier, has no context or description for the mirror until the file is renamed to `JOURNEY.md`.
@@ -151,7 +153,7 @@ Behavior that depends on the model, such as entering a fitting journey, followin
 - Soul Mode is instructions only: nothing enforces the ritual's order, and there is no Soul state outside the conversation. A fruit that was not saved stays only in the session file.
 - A migrated session starts at the conversation's start time, but its messages keep Mirror Mind's message times, which can be the time Mirror Mind imported them. Migrated sessions appear in `/resume` with Pi's own. Memory archives are plain Markdown: nothing ranks or deduplicates them.
 - Soul Mode does not record integration provenance beyond the bullet's date. Mirror Mind also keeps an audit record with the origin and conversation.
-- The projection does not delete a Mirror file that was removed from `vault/`. Remove it from the vault by hand.
+- The projection does not delete a Mirror file that was removed from `vault/`, except the former Soul skill. Remove it from the vault by hand.
 - Explorer, tasks, and attachment search are not implemented.
 - Shared skills in `~/.agents/skills` still load into Mirror and development sessions, whatever the agent directory.
 - `auth.json` in Mirror's and the development agent directory is a symbolic link. Pi locks the link path, not its target, so an OAuth refresh in a Mirror session and in personal Pi at the same moment can race. The likely result is a new login.

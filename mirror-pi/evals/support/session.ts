@@ -14,6 +14,7 @@ import { createJournalExtension } from "../../extensions/journal.ts";
 import { createJourneysExtension } from "../../extensions/journeys.ts";
 import { JOURNEY_ENTRY } from "../../src/journey.ts";
 import { assertNever } from "../../src/result.ts";
+import { REPO } from "./content.ts";
 
 // The settings that scripts/mirror.sh copies into a new Mirror agent directory, with the model.
 export const MIRROR_SETTINGS = fileURLToPath(new URL("../../../agent/settings.json", import.meta.url));
@@ -51,8 +52,9 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
     cwd: options.cwd,
     agentDir,
     noExtensions: true,
-    // Pi discovers skills as in a manual session, including the vault's `.agents/skills`. Personal skills under the home directory are left out.
-    skillsOverride: (base) => ({ skills: base.skills.filter((skill) => !skill.filePath.startsWith(homedir() + sep)), diagnostics: base.diagnostics }),
+    // Pi discovers skills as in a manual session: the Mirror package that the vault settings declare, and the vault's `.agents/skills`.
+    // Personal skills under the home directory are left out, but not the package, which can live there too.
+    skillsOverride: (base) => ({ skills: base.skills.filter((skill) => skill.filePath.startsWith(REPO) || !skill.filePath.startsWith(homedir() + sep)), diagnostics: base.diagnostics }),
     noPromptTemplates: true,
     noThemes: true,
     extensionFactories: [createInstructionsExtension(), createJourneysExtension(), createJournalExtension(now), createCorrectionsExtension(now), createIdentityExtension(now)],

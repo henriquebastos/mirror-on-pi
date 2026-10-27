@@ -311,11 +311,11 @@ test("a session without a journey cannot save records", async () => {
   await assert.rejects(readdir(join(vault.root, "journal")));
 });
 
-test("a trusted vault loads Mirror's extensions as a Pi package; an untrusted one does not", async () => {
+test("Mirror's extensions and Soul skill load as a Pi package only at the root of a trusted vault", async () => {
   const vault = await tempVault();
-  const loaded = async (trusted: boolean): Promise<{ tools: string[]; files: string[] }> => {
-    const settingsManager = SettingsManager.create(vault.root, EVAL_AGENT_DIR, { projectTrusted: trusted });
-    const loader = new DefaultResourceLoader({ cwd: vault.root, agentDir: EVAL_AGENT_DIR, settingsManager, noSkills: true, noPromptTemplates: true, noThemes: true });
+  const loaded = async (cwd: string, trusted: boolean): Promise<{ tools: string[]; files: string[]; skills: string[] }> => {
+    const settingsManager = SettingsManager.create(cwd, EVAL_AGENT_DIR, { projectTrusted: trusted });
+    const loader = new DefaultResourceLoader({ cwd, agentDir: EVAL_AGENT_DIR, settingsManager, noPromptTemplates: true, noThemes: true });
     await loader.reload();
     const result = loader.getExtensions();
     assert.deepEqual(result.errors, []);
@@ -323,13 +323,17 @@ test("a trusted vault loads Mirror's extensions as a Pi package; an untrusted on
     return {
       tools: mirror.flatMap((extension) => [...extension.tools.keys()]).sort(),
       files: mirror.map((extension) => basename(extension.resolvedPath)).sort(),
+      skills: loader.getSkills().skills.filter((skill) => skill.filePath.startsWith(REPO)).map((skill) => skill.name),
     };
   };
-  assert.deepEqual(await loaded(true), {
+  assert.deepEqual(await loaded(vault.root, true), {
     tools: ["mirror_enter_journey", "mirror_integrate_identity", "mirror_record_correction", "mirror_save_journal"],
     files: ["corrections.ts", "identity.ts", "instructions.ts", "journal.ts", "journeys.ts"],
+    skills: ["soul"],
   });
-  assert.deepEqual(await loaded(false), { tools: [], files: [] });
+  const none = { tools: [], files: [], skills: [] };
+  assert.deepEqual(await loaded(vault.root, false), none, "an untrusted vault");
+  assert.deepEqual(await loaded(vault.journey("health"), true), none, "a session started below the vault root");
 });
 
 test("a journey listed in the vault's map can be anywhere: the mirror enters it, gets its context, and saves its records there", async () => {

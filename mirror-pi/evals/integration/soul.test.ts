@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fauxAssistantMessage, fauxToolCall, type FauxResponseStep, type TranscriptContext } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { tempVault } from "../support/content.ts";
+import { REPO, tempVault } from "../support/content.ts";
 import { openMirrorSession } from "../support/session.ts";
 
 const fixed = (): Date => new Date("2026-10-24T08:30:00Z");
@@ -37,7 +37,7 @@ async function integrationRun(): Promise<{ before: string; after: string; transc
   return { before, after: await readFile(file, "utf8"), transcript: JSON.stringify(seen[0]?.messages ?? []) };
 }
 
-test("Pi offers the vault's soul skill in a session at the vault root", async () => {
+test("Pi offers the soul skill from the Mirror package in a session at the vault root", async () => {
   const vault = await tempVault();
   const cwd = vault.root;
   const session = await openMirrorSession({
@@ -48,7 +48,7 @@ test("Pi offers the vault's soul skill in a session at the vault root", async ()
   const tools = session.session.getActiveToolNames();
   await session.close();
   assert.match(system, /<name>soul<\/name>/);
-  assert.match(system, new RegExp(`${vault.root}/\\.agents/skills/soul/SKILL\\.md`));
+  assert.match(system, new RegExp(`${REPO}mirror-pi/skills/soul/SKILL\\.md`));
   assert.ok(tools.includes("mirror_integrate_identity"), "the model is offered the integration tool");
 });
 

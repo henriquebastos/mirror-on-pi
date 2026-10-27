@@ -5,15 +5,17 @@
 // an `identity/` directory (a migrated vault has its own), and never replace a file. Records, state notes, and every other file of the user are never touched.
 // The vault's `AGENTS.md` is the user's map. The starter map goes into every vault that Mirror has not projected before,
 // a migrated one too. It replaces, once, the instructions that Mirror 0.1.0 and 0.1.1 kept in that file.
+// Mirror 0.1 also projected the Soul skill into `.agents/skills/soul/`. Pi now loads it from the package, so the projection
+// deletes that copy, which Git keeps in history. A copy with uncommitted changes stops the projection like any Mirror file.
 // The projection commits only its own files, so each projection is one reviewable commit in the vault.
 import { execFile } from "node:child_process";
-import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, realpath, rm, rmdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { VAULT_MAP } from "./journey.ts";
 import { err, ok, type Result } from "./result.ts";
 
-export type FileOutcome = "created" | "updated" | "kept";
+export type FileOutcome = "created" | "updated" | "kept" | "deleted";
 
 export type ProjectedFile = {
   readonly path: string;
@@ -38,6 +40,9 @@ const run = promisify(execFile);
 const SETTINGS = join(".pi", "settings.json");
 // Every AGENTS.md that Mirror 0.1.0 and 0.1.1 projected starts with this text.
 const FORMER_INSTRUCTIONS = "# Mirror\n\nThis directory is a Mirror vault.";
+// The files of the Soul skill that Mirror 0.1 projected into the vault.
+const FORMER_SKILL = join(".agents", "skills", "soul");
+const FORMER_FILES = ["SKILL.md", ...["beauty", "self", "shadow", "wisdom"].map((voice) => join("voices", `${voice}.md`))].map((file) => join(FORMER_SKILL, file));
 
 export async function projectVault(repo: string, target: string): Promise<Result<Projection, string>> {
   await mkdir(target, { recursive: true });
@@ -46,19 +51,21 @@ export async function projectVault(repo: string, target: string): Promise<Result
   const fresh = (await readOptional(join(vault, "AGENTS.md"))) === undefined && !(await hasEntries(join(vault, "identity")));
   const map = await planMap(repo, vault);
   const owned = [...(await planFiles(join(repo, "vault"), vault)), await planSettings(repo, vault), ...(map === undefined ? [] : [map])];
-  const conflicts = await uncommitted(vault, owned.filter((file) => file.current !== undefined && changes(file)).map((file) => file.path));
+  const former = await existing(vault, FORMER_FILES);
+  const conflicts = await uncommitted(vault, [...owned.filter((file) => file.current !== undefined && changes(file)).map((file) => file.path), ...former]);
   if (conflicts.length > 0) {
     return err(`Uncommitted changes in files that Mirror owns: ${conflicts.join(", ")}. Commit or discard them, then run again.`);
   }
   const starter = fresh ? (await planFiles(join(repo, "starter"), vault)).filter((file) => file.current === undefined && file.path !== VAULT_MAP) : [];
-  const files = [...owned, ...starter].map((file) => ({ path: file.path, outcome: outcomeOf(file) }));
+  const files = [...[...owned, ...starter].map((file) => ({ path: file.path, outcome: outcomeOf(file) })), ...former.map((path) => ({ path, outcome: "deleted" as const }))];
   const written = [...owned, ...starter].filter(changes);
   for (const file of written) {
     await mkdir(dirname(join(vault, file.path)), { recursive: true });
     await writeFile(join(vault, file.path), file.content);
   }
-  // Commit Mirror's files and the copied starter files, including Mirror files that already matched but Git did not have.
-  const pending = await uncommitted(vault, [...owned, ...starter].map((file) => file.path));
+  await removeFormerSkill(vault, former);
+  // Commit Mirror's files, the copied starter files, and the deletions, including Mirror files that already matched but Git did not have.
+  const pending = await uncommitted(vault, [...[...owned, ...starter].map((file) => file.path), ...former]);
   const commit = pending.length === 0 ? undefined : await commitFiles(vault, pending, await describeRepo(repo));
   return ok({ vault, files, commit });
 }
@@ -90,6 +97,20 @@ function changes(file: PlannedFile): boolean {
 function outcomeOf(file: PlannedFile): FileOutcome {
   if (file.current === undefined) return "created";
   return changes(file) ? "updated" : "kept";
+}
+
+async function existing(vault: string, paths: readonly string[]): Promise<string[]> {
+  const found = await Promise.all(paths.map(async (path) => ((await readOptional(join(vault, path))) === undefined ? undefined : path)));
+  return found.filter((path) => path !== undefined);
+}
+
+// Delete the former skill files, then the directories that they leave empty, up to `.agents`.
+async function removeFormerSkill(vault: string, files: readonly string[]): Promise<void> {
+  if (files.length === 0) return;
+  for (const file of files) await rm(join(vault, file));
+  for (const dir of [join(FORMER_SKILL, "voices"), FORMER_SKILL, dirname(FORMER_SKILL), dirname(dirname(FORMER_SKILL))]) {
+    if (!(await hasEntries(join(vault, dir)))) await rmdir(join(vault, dir)).catch(() => undefined);
+  }
 }
 
 async function hasEntries(dir: string): Promise<boolean> {

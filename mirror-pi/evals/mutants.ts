@@ -202,6 +202,34 @@ const MUTANTS: readonly Mutant[] = [
     suite: CONTRACTS,
   },
   {
+    name: "the projection keeps the Soul skill that Mirror 0.1 projected",
+    file: "mirror-pi/src/projection.ts",
+    from: "await removeFormerSkill(vault, former);",
+    to: "",
+    suite: CONTRACTS,
+  },
+  {
+    name: "the projection deletes uncommitted edits of the former Soul skill",
+    file: "mirror-pi/src/projection.ts",
+    from: "changes(file)).map((file) => file.path), ...former]);",
+    to: "changes(file)).map((file) => file.path)]);",
+    suite: CONTRACTS,
+  },
+  {
+    name: "the projection deletes the former skill without committing the deletion",
+    file: "mirror-pi/src/projection.ts",
+    from: "...starter].map((file) => file.path), ...former]);",
+    to: "...starter].map((file) => file.path)]);",
+    suite: CONTRACTS,
+  },
+  {
+    name: "the Mirror package does not declare the Soul skill",
+    file: "package.json",
+    from: '"./mirror-pi/skills"',
+    to: "",
+    suite: INTEGRATION,
+  },
+  {
     name: "the projection commits the user's staged work",
     file: "mirror-pi/src/projection.ts",
     from: '"--only", "--", ...paths]',
@@ -211,8 +239,8 @@ const MUTANTS: readonly Mutant[] = [
   {
     name: "Mirror files that already matched stay uncommitted",
     file: "mirror-pi/src/projection.ts",
-    from: "await uncommitted(vault, [...owned, ...starter].map((file) => file.path));",
-    to: "await uncommitted(vault, written.map((file) => file.path));",
+    from: "await uncommitted(vault, [...[...owned, ...starter].map((file) => file.path), ...former]);",
+    to: "await uncommitted(vault, [...written.map((file) => file.path), ...former]);",
     suite: CONTRACTS,
   },
   {
