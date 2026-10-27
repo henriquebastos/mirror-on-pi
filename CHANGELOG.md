@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.3 — 2026-10-26
+
+A journey's context moves to `JOURNEY.md`, and the mirror reads the `AGENTS.md` of the directories it works in.
+
+### Changes
+
+- A journey's context is its `JOURNEY.md`, for the mirror only. Pi does not load it, so other agents in a journey directory, a code repository included, do not get it. `AGENTS.md` in a journey directory is for every agent.
+- **Upgrade:** rename each `journeys/<slug>/AGENTS.md` that holds journey context to `JOURNEY.md`. Until then, that journey has no context or description for the mirror. Migration and the starter journeys write `JOURNEY.md`.
+- A session started in a journey directory gets that journey's context in the `mirror_journey` section.
+- Mirror's instructions tell the model to read each `AGENTS.md` between the starting directory and the directory it works in, and to look at the skills next to them. The starter map says the same to every agent. No extension enforces it.
+
+### Validation
+
+- Contract evals 39/39, integration evals 15/15, mutants 59/59 killed.
+- Behavior evals with real models, 12 scenarios over 3 runs: `openai/gpt-6-astra` 36/36 and `openrouter/anthropic/claude-opus-5.5` 36/36.
+- Negative control: without the instruction, both models skipped the nested `AGENTS.md` in 3 of 3 runs each.
+
 ## 0.1.2 — 2026-10-26
 
 The vault's `AGENTS.md` becomes your map, and a journey can be any directory of the vault.
