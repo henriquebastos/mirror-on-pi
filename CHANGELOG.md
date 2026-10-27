@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0 — 2026-10-27
+
+Mirror loads only in a session that starts at the vault root, the Soul skill too. Start your own `pi` there; the launcher is optional.
+
+### Changes
+
+- The Soul skill is part of the Mirror package, `mirror-pi/skills/soul/`. Pi offers it only where it loads the package: at the root of a trusted vault. A session in a directory below the vault root no longer sees it.
+- `mirror-init` deletes the copy of the skill that Mirror 0.1 projected into `.agents/skills/soul/`, with the directories it leaves empty, and commits the deletion. Git keeps the files in history. An uncommitted edit of them stops the projection, as for every Mirror file.
+- The README and the vault README say to start your own `pi` at the vault root and trust the vault once. The launcher, `scripts/mirror.sh`, stays for a separate Pi configuration and for development.
+- **Upgrade:** run this release's `mirror-init` for each vault, then move `current`. Your own `pi` does not check the Pi version: after a Pi update, run the evals again on the new version.
+
+### Validation
+
+- Contract evals 42/42, integration evals 20/20, mutants 73/73 killed.
+- Behavior evals with real models, 14 scenarios over 3 runs: `openai/gpt-6-astra` 42/42 and `openrouter/anthropic/claude-opus-5.5` 42/42. In the first `gpt-6-astra` attempt, run 1 passed 14/14 and the provider then returned empty replies; runs 2 and 3 were run again and passed 28/28.
+
 ## 0.1.5 — 2026-10-27
 
 The vault README tells where conversations are for each way to start Pi.
