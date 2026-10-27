@@ -72,9 +72,10 @@ function systemText(contexts: readonly TranscriptContext[]): string {
   return JSON.stringify((contexts.at(-1)?.messages ?? []).filter((message) => message.role === "system"));
 }
 
-// Open an in-memory session at the vault root, run prompts, and return the session manager and the last system prompt the model received.
-async function atRoot(vault: EvalVault, prompts: readonly string[], responses: readonly FauxResponseStep[], options: { journey?: string } = {}): Promise<{ sessionManager: SessionManager; system: string }> {
-  const created = SessionManager.inMemory(vault.root);
+// Open an in-memory session at the vault root, or at `cwd`, run prompts, and return the session manager and the last system prompt the model received.
+async function atRoot(vault: EvalVault, prompts: readonly string[], responses: readonly FauxResponseStep[], options: { journey?: string; cwd?: string } = {}): Promise<{ sessionManager: SessionManager; system: string }> {
+  const cwd = options.cwd ?? vault.root;
+  const created = SessionManager.inMemory(cwd);
   const sessionManager = options.journey === undefined ? created : inJourney(created, options.journey);
   const contexts: TranscriptContext[] = [];
   const recorded = responses.map((step): FauxResponseStep => (context, ...rest) => {
@@ -82,7 +83,7 @@ async function atRoot(vault: EvalVault, prompts: readonly string[], responses: r
     return typeof step === "function" ? step(context, ...rest) : step;
   });
   const session = await openMirrorSession({
-    cwd: vault.root, sessionManager, model: { kind: "scripted", responses: recorded },
+    cwd, sessionManager, model: { kind: "scripted", responses: recorded },
   });
   for (const prompt of prompts) await session.session.prompt(prompt);
   await session.close();
@@ -146,6 +147,19 @@ test("a session in a journey gets that journey's context and not another's", asy
   assert.match(system, /# Journey: Career/);
   assert.doesNotMatch(system, /# Journey: Health/);
   assert.ok(system.indexOf("In this vault you are the user's mirror") < system.indexOf("# Journey: Career"), "vault instructions come before the journey");
+});
+
+test("a journey's context is its JOURNEY.md, also in a session started in the journey directory; its AGENTS.md is for every agent", async () => {
+  const vault = await tempVault();
+  await writeFile(join(vault.journey("career"), "AGENTS.md"), "Indent code with tabs here.\n");
+  const bound = await atRoot(vault, ["Where do we start?"], [reply("Here.")], { journey: "career" });
+  assert.match(bound.system, /# Journey: Career/);
+  assert.doesNotMatch(bound.system, /Indent code with tabs/, "the journey's AGENTS.md is not its context");
+
+  const inside = await atRoot(vault, ["Where do we start?"], [reply("Here.")], { cwd: vault.journey("career") });
+  assert.match(inside.system, /This session is in the journey `career`\. Directory `journeys\/career\/`\./);
+  assert.match(inside.system, /# Journey: Career/);
+  assert.match(inside.system, /Indent code with tabs/, "Pi loads the AGENTS.md of the starting directory");
 });
 
 test("entering a journey needs no UI: it binds the session, names it, records the reason, and loads the context from the next message", async () => {
@@ -237,7 +251,7 @@ test("a journey listed in the vault's map can be anywhere: the mirror enters it,
   const vault = await tempVault();
   const garden = join(vault.root, "projects", "garden");
   await mkdir(garden, { recursive: true });
-  await writeFile(join(garden, "AGENTS.md"), "---\ndescription: Raised beds and the compost.\n---\n# Journey: Garden\n\nThe beds face south.\n");
+  await writeFile(join(garden, "JOURNEY.md"), "---\ndescription: Raised beds and the compost.\n---\n# Journey: Garden\n\nThe beds face south.\n");
   await writeFile(join(vault.root, "AGENTS.md"), "# Vault\n\n## Journeys\n\n- `garden`: `projects/garden/`\n");
   const listed = await atRoot(vault, ["Hi."], [reply("Hello.")]);
   assert.match(listed.system, /`garden` in `projects\/garden\/`: Raised beds and the compost\./);
@@ -249,7 +263,7 @@ test("a journey listed in the vault's map can be anywhere: the mirror enters it,
     observe(seen, "Saved in garden."),
     reply("You are welcome."),
   ]);
-  assert.match(messagesText(seen[0]), /Read projects\/garden\/AGENTS\.md now/);
+  assert.match(messagesText(seen[0]), /Read projects\/garden\/JOURNEY\.md now/);
   assert.match(system, /This session is in the journey `garden`\. Directory `projects\/garden\/`\./);
   assert.match(system, /The beds face south\./);
   assert.equal((await readdir(join(garden, "journal"))).length, 1);

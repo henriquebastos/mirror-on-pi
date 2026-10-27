@@ -7,7 +7,7 @@ import { mkdir, readdir, realpath, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
 import { CURRENT_SESSION_VERSION, type CustomEntry, type SessionHeader, type SessionInfoEntry, type SessionMessageEntry } from "@earendil-works/pi-coding-agent";
-import { JOURNEY_ENTRY, type JourneyEntry } from "./journey.ts";
+import { JOURNEY_ENTRY, JOURNEY_FILE, type JourneyEntry } from "./journey.ts";
 import type { JsonRecord } from "./json.ts";
 import { renderMarkdown } from "./markdown.ts";
 import type { MirrorMindData, OldConversation, OldIdentity, OldMemory, OldMessage, OldNames } from "./mirror-mind.ts";
@@ -55,7 +55,7 @@ function identityFile(entry: OldIdentity, names: ReadonlyMap<string, OldNames>):
   if (entry.layer === "persona") return { path: join("identity", "personas", `${entry.key}.md`), content: renderMarkdown(defined({ name: shown.name ?? entry.key, description: shown.description }), entry.content) };
   if (entry.layer === "journey") {
     const frontmatter = defined({ title: shown.name ?? entry.key, status: shown.status ?? "active", description: shown.description });
-    return { path: join("journeys", entry.key, "AGENTS.md"), content: renderMarkdown(frontmatter, entry.content) };
+    return { path: join("journeys", entry.key, JOURNEY_FILE), content: renderMarkdown(frontmatter, entry.content) };
   }
   return undefined;
 }

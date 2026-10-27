@@ -162,8 +162,8 @@ const MUTANTS: readonly Mutant[] = [
   {
     name: "the journey's context does not reach the model",
     file: "mirror-pi/extensions/journeys.ts",
-    from: "journeySection(vault, boundSlug(ctx.sessionManager.getBranch()))",
-    to: "journeySection(vault, undefined)",
+    from: "journeySection(vault, slug);",
+    to: "journeySection(vault, undefined);",
     suite: INTEGRATION,
   },
   {
@@ -409,6 +409,27 @@ const MUTANTS: readonly Mutant[] = [
     file: "mirror-pi/src/projection.ts",
     from: "(await readOptional(join(vault, SETTINGS))) === undefined : current",
     to: "false : current",
+    suite: CONTRACTS,
+  },
+  {
+    name: "a journey's context is its AGENTS.md",
+    file: "mirror-pi/src/journey.ts",
+    from: 'export const JOURNEY_FILE = "JOURNEY.md";',
+    to: 'export const JOURNEY_FILE = "AGENTS.md";',
+    suite: INTEGRATION,
+  },
+  {
+    name: "a session started in a journey directory gets no journey section",
+    file: "mirror-pi/extensions/journeys.ts",
+    from: "?? (await journeyAt(vault, ctx.cwd))?.slug;",
+    to: "?? undefined;",
+    suite: INTEGRATION,
+  },
+  {
+    name: "migrated journeys keep their context in AGENTS.md",
+    file: "mirror-pi/src/migration.ts",
+    from: 'join("journeys", entry.key, JOURNEY_FILE)',
+    to: 'join("journeys", entry.key, "AGENTS.md")',
     suite: CONTRACTS,
   },
 ];

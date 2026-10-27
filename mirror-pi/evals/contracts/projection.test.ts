@@ -42,7 +42,7 @@ test("a new vault gets its own Git repository, Mirror's files, and the starter c
   assert.equal(outcome(projection, "AGENTS.md"), "created");
   assert.equal(outcome(projection, ".agents/skills/soul/SKILL.md"), "created");
   assert.equal(outcome(projection, "identity/ego/constraints.md"), "created");
-  assert.equal(outcome(projection, "journeys/health/AGENTS.md"), "created");
+  assert.equal(outcome(projection, "journeys/health/JOURNEY.md"), "created");
   assert.equal(await readFile(join(vault, "AGENTS.md"), "utf8"), await readFile(join(REPO, "starter", "AGENTS.md"), "utf8"), "the vault gets the starter map");
   assert.equal(git(vault, "rev-list", "--count", "HEAD"), "1");
   assert.equal(git(vault, "rev-parse", "HEAD"), projection.commit);
@@ -136,12 +136,12 @@ test("the user's content stays the user's: edits, deletions, records, and staged
 test("an existing directory without Git keeps its files, and starter files never replace them", async () => {
   const vault = join(await tempDir(), "vault");
   await mkdir(join(vault, "journeys", "health"), { recursive: true });
-  await writeFile(join(vault, "journeys", "health", "AGENTS.md"), "# Already here\n");
+  await writeFile(join(vault, "journeys", "health", "JOURNEY.md"), "# Already here\n");
   const projection = await project(vault);
 
   assert.equal(git(vault, "rev-parse", "--show-toplevel"), vault);
-  assert.equal(outcome(projection, "journeys/health/AGENTS.md"), undefined, "an existing file is not part of the projection");
-  assert.equal(await readFile(join(vault, "journeys", "health", "AGENTS.md"), "utf8"), "# Already here\n");
+  assert.equal(outcome(projection, "journeys/health/JOURNEY.md"), undefined, "an existing file is not part of the projection");
+  assert.equal(await readFile(join(vault, "journeys", "health", "JOURNEY.md"), "utf8"), "# Already here\n");
   assert.equal(outcome(projection, "identity/ego/constraints.md"), "created");
 });
 

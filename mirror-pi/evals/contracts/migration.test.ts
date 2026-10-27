@@ -109,8 +109,8 @@ test("identity rows become identity files and journeys with their text unchanged
   assert.deepEqual(await markdown(join(vault, "identity", "self", "soul.md")), { frontmatter: { layer: "self" }, body: "# Alma\n\nEu sou o espelho do Sam." });
   assert.equal((await markdown(join(vault, "identity", "user", "identity.md"))).body, "# Sam\n\nSam tem duas filhas, Ana e Bia.");
   assert.deepEqual((await markdown(join(vault, "identity", "personas", "pai.md"))).frontmatter, { name: "Pai", description: "Lente de paternidade. Ativa com as filhas." });
-  assert.deepEqual((await markdown(join(vault, "journeys", "saude", "AGENTS.md"))).frontmatter, { title: "Saúde", status: "active", description: "Sono e energia." });
-  assert.deepEqual((await markdown(join(vault, "journeys", "carreira", "AGENTS.md"))).frontmatter, { title: "carreira", status: "active" }, "a journey without YAML keeps its slug as title");
+  assert.deepEqual((await markdown(join(vault, "journeys", "saude", "JOURNEY.md"))).frontmatter, { title: "Saúde", status: "active", description: "Sono e energia." });
+  assert.deepEqual((await markdown(join(vault, "journeys", "carreira", "JOURNEY.md"))).frontmatter, { title: "carreira", status: "active" }, "a journey without YAML keeps its slug as title");
   assert.deepEqual((await listJourneys(vault)).map(({ slug, description }) => ({ slug, description })), [{ slug: "carreira", description: "Sam pensa em dar aulas." }, { slug: "saude", description: "Sono e energia." }], "archives are not journeys");
   assert.deepEqual(await readFile(join(vault, "identity", "user", "report.pdf")), PDF);
   assert.equal(await readFile(join(vault, "identity", "user", "big5.yaml"), "utf8"), "scores:\n  openness: 90\n");

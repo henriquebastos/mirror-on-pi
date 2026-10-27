@@ -13,7 +13,7 @@ Mirror is plain Pi at the root of a Markdown vault, plus a few small Mirror exte
 | Identity in every session | `mirror-pi/extensions/identity.ts`, `mirror-pi/src/identity-context.ts` | Before each run, a `mirror_identity` system prompt section holds the hard constraints (`identity/ego/constraints.md`) in full and one line per other identity file, personas with their name and description. A vault without identity files gets no section. |
 | Soul Mode | `vault/.agents/skills/soul/` | A Pi skill in the vault: the ritual in `SKILL.md`, one file per voice in `voices/`. Cards and the fruit live in the conversation. A harvested fruit is saved with `mirror_save_journal`. |
 | Identity integrations | `mirror-pi/extensions/identity.ts` | `mirror_integrate_identity`: after the user agrees in the chat to the exact text, appends a dated bullet to the layer's section (self, shadow, ego, or persona file). |
-| A journey | A directory in the vault | A directory directly below `journeys/`, or a directory listed in the `## Journeys` section of the vault map as `` - `slug`: `path/` ``: the present state of one topic and what is known about it. Its `AGENTS.md` holds the journey context. A listed directory that is missing on this machine, or outside the vault, is not a journey. |
+| A journey | A directory in the vault | A directory directly below `journeys/`, or a directory listed in the `## Journeys` section of the vault map as `` - `slug`: `path/` ``: the present state of one topic and what is known about it. Its `JOURNEY.md` holds the journey context, for the mirror only: Pi does not load it as a context file, so other agents in that directory do not get it. A listed directory that is missing on this machine, or outside the vault, is not a journey. |
 | Journeys in a session | `mirror-pi/extensions/journeys.ts` | See [Journeys](#journeys). |
 | Conversation history and memory | Pi session files | Pi stores sessions per working directory in `<agent dir>/sessions/--<path>--/`. Mirror's instructions give the model a `jq` and `rg` command that searches the user's and the mirror's messages in every session of the vault: the vault root and every directory below it. |
 | Journal entries | `mirror-pi/extensions/journal.ts` | `mirror_save_journal`: a Markdown file in the session journey's `journal/`. |
@@ -33,12 +33,16 @@ A session starts at the vault root without a journey. The model enters the journ
 | No journey yet | Before each run, the extension adds a `mirror_journey` system prompt section that lists the journeys, with each directory and the `description` from each journey's front matter. |
 | Entry | When the topic clearly fits one journey, or the user names one, the model calls `mirror_enter_journey(slug, reason)` and names the journey in a few words in its answer. The tool needs no UI, so it works in `pi -p` too. It refuses a journey that does not exist. |
 | Binding | The tool appends a `mirror-journey` custom entry `{ slug, from, reason }` to the session and names the session after the journey. The latest entry on the branch is the session's journey. |
-| Context | From the next run on, the `mirror_journey` section names the journey's directory, holds its `AGENTS.md`, and names the other journeys. |
+| Context | From the next run on, the `mirror_journey` section names the journey's directory, holds its `JOURNEY.md`, and names the other journeys. |
 | Switch and correction | The same tool. A later `mirror-journey` entry replaces the earlier one. A switch right after an entry, following the user's words, is a correction. The entries are the evidence for a later decision model. Sessions from before this change may also hold `mirror-decision` entries; nothing reads them. |
 | Records | Journal entries and corrections go to the session's journey. Without one, the tools refuse. |
 
 Reads cross journeys freely: every journey can read every other journey's files and sessions. Only the binding and the records follow the journey.
-A session started inside a journey directory, as before, still belongs to that journey, and Pi loads that journey's `AGENTS.md` as a context file.
+A session started inside a journey directory belongs to that journey until it enters another one, and its `mirror_journey` section holds that journey's context.
+
+## Directory context
+
+Pi loads the `AGENTS.md` files of the starting directory and its parents only. Mirror's instructions tell the model to read each `AGENTS.md` between the starting directory and a directory below it before it works there, and to look at the skills in the `.agents/skills/` directories next to them. The starter map says the same to every agent. No extension enforces it; the behavior eval checks that the model reads the file and follows it.
 
 ## Vault projection
 
@@ -124,7 +128,7 @@ Behavior that depends on the model, such as entering a fitting journey, followin
 ## Known limits
 
 - The model must enter journeys, follow the user's corrections, read the identity files when the conversation is personal, and search earlier sessions itself. The behavior evals check that it does.
-- A journey's context reaches the model from the message after the binding. In the turn of the binding, the tool tells the model to read the journey's `AGENTS.md` itself.
+- A journey's context reaches the model from the message after the binding. In the turn of the binding, the tool tells the model to read the journey's `JOURNEY.md` itself.
 - `pi -c` continues the latest session of the vault, whatever its journey. The session name shows the journey in `/resume`.
 - Memory search is lexical. The model chooses the terms; a memory phrased with other words can be missed. The comparison used 24 sessions. Searching years of sessions was not tested and will cost more per question.
 - The search output names the session file, not its journey.
@@ -133,6 +137,8 @@ Behavior that depends on the model, such as entering a fitting journey, followin
 - Mirror never commits the vault's content: its sessions in `.pi/agent/sessions/`, journals, corrections, and identity files. They enter the vault's history when the user commits, with the workflow the user chooses. Only the projection commits, and only Mirror's own files.
 - Started with personal Pi instead of the launcher, a vault session loads personal context files, extensions, and AI Memory capture. The evals do not cover that.
 - Pi's default system prompt describes a coding assistant. Mirror's instructions add the mirror's role in words only.
+- A directory's `AGENTS.md` and skills below the starting directory reach the model only when it follows the instruction to read them. The behavior eval shows that both models skip them without the instruction.
+- A journey whose context is still in an `AGENTS.md`, from Mirror 0.1.2 or earlier, has no context or description for the mirror until the file is renamed to `JOURNEY.md`.
 - The session search command uses the working directory. In a session started below the vault root, it searches only that directory's sessions. Pi names session directories with `-` for `/`, so the search also reads the sessions of a sibling directory whose name starts with the vault's name and `-`.
 - A subagent is recognized only by the `PI_SUBAGENT_CHILD` variable of pi-subagents. Its Mirror tools stay registered; only the system prompt sections are left out.
 - The model has Pi's default tools, including `bash`, `edit`, and `write`. Only the instructions stop it from editing identity files with them, and from calling `mirror_integrate_identity` before the user agrees. No dialog guards any tool.

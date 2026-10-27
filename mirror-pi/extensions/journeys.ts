@@ -14,9 +14,10 @@ export function createJourneysExtension(): (pi: ExtensionAPI) => void {
   return (pi) => {
     pi.on("before_agent_start", async (event, ctx) => {
       const vault = isSubagent() ? undefined : await findVault(ctx.cwd);
-      // A session started in a journey directory gets the journey's AGENTS.md from Pi's context files.
-      if (vault === undefined || (await journeyAt(vault, ctx.cwd)) !== undefined) return;
-      event.systemPromptOptions.sections.mirror_journey = await journeySection(vault, boundSlug(ctx.sessionManager.getBranch()));
+      if (vault === undefined) return;
+      // A session started in a journey directory belongs to that journey until it enters another one.
+      const slug = boundSlug(ctx.sessionManager.getBranch()) ?? (await journeyAt(vault, ctx.cwd))?.slug;
+      event.systemPromptOptions.sections.mirror_journey = await journeySection(vault, slug);
     });
 
     pi.registerTool({
@@ -44,7 +45,7 @@ async function enterJourney(pi: ExtensionAPI, ctx: ExtensionContext, slug: strin
   if (from === slug) return text(`The session is already in the journey ${slug}.`, { slug });
   pi.appendEntry<JourneyEntry>(JOURNEY_ENTRY, { slug, from, reason });
   pi.setSessionName(slug);
-  return text(`Entered the journey ${slug}. Its context joins the system prompt from the user's next message. Read ${journey.path}AGENTS.md now if this answer needs it.`, { slug, from });
+  return text(`Entered the journey ${slug}. Its context joins the system prompt from the user's next message. Read ${journey.path}JOURNEY.md now if this answer needs it.`, { slug, from });
 }
 
 function text(message: string, details: Readonly<Record<string, unknown>>): ToolText {

@@ -8,10 +8,10 @@ This vault is a Git repository. `mirror-init` in the Mirror repository builds it
 - It copied a starter `AGENTS.md`, the vault map, into the vault once. The map is yours. Mirror's instructions come from the Mirror release, not from a file here.
 - It copied the starter identity and journeys into the new vault once, unless the vault already had an identity, as a vault migrated from Mirror Mind does. From then on they are yours, like every other file here.
 
-- `AGENTS.md` — your map of the vault. Every agent that starts here reads it, subagents too. Keep it short. List journeys outside `journeys/` in its `## Journeys` section, one per line, as `` - `slug`: `path/` ``.
+- `AGENTS.md` — your map of the vault. Every agent that starts here reads it, subagents too. Keep it short. An `AGENTS.md` in any other directory holds the rules for agents that work there, and `.agents/skills/` next to it holds that directory's skills. List journeys outside `journeys/` in its `## Journeys` section, one per line, as `` - `slug`: `path/` ``.
 - `identity/` — who the mirror is and who it speaks with. The model has the hard constraints and the list of files in every session, and reads the files when the conversation is personal. It changes them only to append a Soul Mode integration that you agree to.
 - `.agents/skills/soul/` — Soul Mode. Start it with `/skill:soul` or by asking for Soul Mode.
-- `journeys/<slug>/AGENTS.md` — one durable topic of your life and its context. Each directory below `journeys/` is a journey, and so is each directory listed in the map. The `description` in its front matter tells the mirror when the journey fits.
+- `journeys/<slug>/JOURNEY.md` — one durable topic of your life and its context, for the mirror only. Each directory below `journeys/` is a journey, and so is each directory listed in the map. The `description` in its front matter tells the mirror when the journey fits.
 - `journal/` and `corrections/` in the journey's directory — journal entries and corrections saved on request.
 - `journeys/<slug>/files/` — your own PDFs, images, and notes for the journey.
 

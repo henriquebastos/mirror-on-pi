@@ -9,7 +9,7 @@ import { tempVault, type EvalVault } from "../support/content.ts";
 async function vaultWithMap(map: string): Promise<EvalVault> {
   const vault = await tempVault();
   await mkdir(join(vault.root, "projects", "garden"), { recursive: true });
-  await writeFile(join(vault.root, "projects", "garden", "AGENTS.md"), "---\ndescription: Raised beds and the compost.\n---\n# Journey: Garden\n");
+  await writeFile(join(vault.root, "projects", "garden", "JOURNEY.md"), "---\ndescription: Raised beds and the compost.\n---\n# Journey: Garden\n");
   await writeFile(join(vault.root, "AGENTS.md"), map);
   return vault;
 }

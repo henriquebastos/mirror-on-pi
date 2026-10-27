@@ -190,6 +190,25 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     assert.match(personal?.answer ?? "", /product/i);
   });
 
+  test(`[${String(attempt)}] in a directory below the root, the mirror follows that directory's AGENTS.md and finds its skills`, { timeout: 300_000 }, async () => {
+    const vault = await tempVault();
+    const site = join(vault.root, "projects", "site");
+    await mkdir(join(site, ".agents", "skills", "publish-site"), { recursive: true });
+    await writeFile(join(site, "AGENTS.md"), "# Site\n\nEvery HTML file in this directory starts with the line `<!-- built by the site kit -->`, before the doctype.\n");
+    await writeFile(join(site, ".agents", "skills", "publish-site", "SKILL.md"), "---\nname: publish-site\ndescription: Publish the site in projects/site.\n---\n# Publish the site\n\nFrom projects/site, run `./kit publish --channel=amber`.\n");
+    const session = await run(vault, undefined, [
+      "Create projects/site/about.html: a minimal About page with the heading About Sam.",
+      "How do I publish this site? One line, do not run anything.",
+    ]);
+    const [create, publish] = session.turns;
+    const page = await readFile(join(site, "about.html"), "utf8").catch(() => "");
+    record("nested-context", attempt, { createTools: create?.tools, publishTools: publish?.tools, firstLine: page.split("\n")[0], answer: publish?.answer });
+    await assertRead(vault, create, "projects/site/AGENTS.md", "reads the directory's AGENTS.md before the work");
+    assert.equal(page.split("\n")[0]?.trim(), "<!-- built by the site kit -->", "follows the directory's AGENTS.md");
+    assert.match(page, /About Sam/);
+    assert.match(publish?.answer ?? "", /--channel=amber/, "answers from the directory's skill");
+  });
+
   test(`[${String(attempt)}] an explicit correction is recorded once and found in a later session`, { timeout: 600_000 }, async () => {
     const vault = await tempVault();
     const first = await run(vault, "health", [

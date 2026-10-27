@@ -6,7 +6,7 @@ Read [mirror-pi/docs/evals.md](mirror-pi/docs/evals.md) before changing or addin
 
 ## Rules
 
-- Keep Mirror as close to plain Pi as possible. Put behavior in `mirror-pi/instructions.md` and the journey `AGENTS.md` files. The vault's own `AGENTS.md` is the user's map. Add an extension only when Pi cannot do the job, and keep each extension to one job.
+- Keep Mirror as close to plain Pi as possible. Put behavior in `mirror-pi/instructions.md` and the journey `JOURNEY.md` files. The vault's own `AGENTS.md` is the user's map. Add an extension only when Pi cannot do the job, and keep each extension to one job.
 - Never use personal content or personal sessions as fixtures. Evals use the synthetic starter vault and a temporary Pi agent directory.
 - Never edit global Pi configuration. Development sessions run through `scripts/mirror.sh` with the development vault.
 - Do not copy credentials. Mirror's agent directory in the vault, `.pi/agent`, links only `auth.json` to the personal Pi agent directory.

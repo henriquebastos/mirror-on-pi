@@ -2,6 +2,7 @@
 // `journeys/`, or a directory listed in the `## Journeys` section of the vault's AGENTS.md, which can be anywhere in the vault.
 // A session enters a journey when the model enters it, following the user; the latest `mirror-journey` entry on the
 // session branch names the journey. A session started inside a journey directory belongs to that journey.
+// A journey's `JOURNEY.md` holds its context for the mirror only. It is not an AGENTS.md, so other agents do not load it.
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import { isRecord, stringField } from "./json.ts";
@@ -23,6 +24,9 @@ export const JOURNEY_ENTRY = "mirror-journey";
 
 // The user's map of the vault. Its `## Journeys` section lists journeys outside `journeys/`.
 export const VAULT_MAP = "AGENTS.md";
+
+// The journey's context, in the journey directory.
+export const JOURNEY_FILE = "JOURNEY.md";
 
 // Entering or switching a journey. A switch right after an entry is a correction: the evidence for a later decision model.
 // Entries written before the reason was recorded hold only the slug.
@@ -102,10 +106,10 @@ async function journeyDescription(journey: Journey): Promise<string> {
 }
 
 export async function readJourneyContext(journey: Journey): Promise<string> {
-  return readFile(join(journey.dir, "AGENTS.md"), "utf8").catch(() => "");
+  return readFile(join(journey.dir, JOURNEY_FILE), "utf8").catch(() => "");
 }
 
-// The system prompt section for a session at the vault root: the bound journey's context, or the journeys to choose from.
+// The mirror_journey system prompt section: the session's journey and its context, or the journeys to choose from.
 export async function journeySection(vault: string, slug: string | undefined): Promise<string> {
   const journeys = await listJourneys(vault);
   if (slug === undefined) {

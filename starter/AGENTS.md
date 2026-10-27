@@ -2,6 +2,8 @@
 
 A personal vault of Markdown files in Git. Every agent that starts here reads this file: keep it a short map.
 
+Before you work in a directory of this vault, read each `AGENTS.md` between this file and that directory, and follow it.
+
 ## Map
 
 - `identity/`: who the user is.
@@ -10,4 +12,4 @@ A personal vault of Markdown files in Git. Every agent that starts here reads th
 
 ## Journeys
 
-Every directory below `journeys/` is a journey. To make a directory elsewhere in the vault a journey, add one line here with its slug and path, such as: - `garden`: `projects/garden/`
+Every directory below `journeys/` is a journey. Its `JOURNEY.md` holds its context. To make a directory elsewhere in the vault a journey, add one line here with its slug and path, such as: - `garden`: `projects/garden/`
