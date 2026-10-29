@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.1 — 2026-10-29
+
+A journal entry that fits no journey is saved at the vault root. The evals run from a fresh checkout, and a capability gate compares Mirror with a committed baseline.
+
+### Changes
+
+- `mirror_save_journal` saves to the vault's `journal/` when the session has no journey. Before, the model asked which journey to use, and a Soul Mode harvest at the vault root was not saved. Corrections still need a journey.
+- Mirror's instructions and the Soul skill say so, and the session search includes the vault's `journal/`.
+- **Vault:** if the vault's Git repository uses an allowlist `.gitignore`, allow `journal/` at the root.
+- **Upgrade:** run this release's `mirror-init` for each vault, then move `current`.
+
+### Validation
+
+- Contract evals 43/43, parity harness tests 15/15, integration evals 20/20, mutants 76/76 killed, on macOS and on Linux (CI).
+- Behavior evals with real models, 15 scenarios over 3 runs, through the subscriptions (`MIRROR_EVAL_AUTH`):
+  - `openai/gpt-6-astra`: 44/45. "Offers the Self Voice" failed once in `soul-self-integration`; 3 more runs of that scenario passed 3/3.
+  - `anthropic/claude-opus-5-5`: 44/45. In the revision scenario, the model asked which sentence the change request meant, because its proposal had no `self` sentence; it recorded nothing. 3 more runs passed 3/3.
+  - The new regression case for the root harvest failed on 0.2.0 with GPT-6.1 Sol ("this session has no journey") and passed on this release.
+- Capability gate against the v0.2.0 baseline: GPT-6.1 Sol 94% (baseline 93%, interval −3 to +2), Opus 5.5 98% (baseline 98%, −1 to +2). The root harvest scenario saved the harvest in 6/6 runs (v0.2.0: 1/6). The frozen history makes no journal entry, so the fixture and the baseline stay at v0.2.0.
+
 ## 0.2.0 — 2026-10-27
 
 Mirror loads only in a session that starts at the vault root, the Soul skill too. Start your own `pi` there; the launcher is optional.

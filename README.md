@@ -26,8 +26,8 @@ The model needs `jq` and `rg` on the `PATH`.
 Use a release, not this working tree: the vault loads Mirror from the directory that ran `mirror-init`, so a vault projected from here runs every uncommitted change.
 
 ```sh
-git worktree add ~/.local/share/mirror/v0.2.0 v0.2.0 && pnpm -C ~/.local/share/mirror/v0.2.0 install
-ln -sfn ~/.local/share/mirror/v0.2.0 ~/.local/share/mirror/current
+git worktree add ~/.local/share/mirror/v0.2.1 v0.2.1 && pnpm -C ~/.local/share/mirror/v0.2.1 install
+ln -sfn ~/.local/share/mirror/v0.2.1 ~/.local/share/mirror/current
 ~/.local/share/mirror/current/scripts/mirror-init.sh ~/my-vault                 # again after each upgrade
 cd ~/my-vault && pi                                                              # trust the vault once
 ```
