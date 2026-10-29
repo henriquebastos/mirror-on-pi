@@ -1,14 +1,16 @@
-// Grade every finished cell blind, with two graders of other model families than most chat models.
+// Grade every finished cell blind. The default grader is Sonnet 5.5 alone (design §1k): a second family, Gemini, was
+// dropped, and GPT-6.1 Sol agreed with the stored grades on only half of the recall items.
 // A grader sees the user turns and the visible answers, never the arm or the model. Layout that names an arm is removed:
 // Mirror Mind's mode banner, box borders, and quotation marks; the text inside boxes and cards stays.
 // Usage: node mirror-pi/evals/experiments/parity/grade.ts <out> [--concurrency 6] [--graders provider/id,...]
 import { appendFile, readFile } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { isRecord, stringField, type JsonRecord } from "../../../src/json.ts";
+import { EVAL_AUTH } from "../../support/credentials.ts";
 import { QUESTIONS, type Question } from "./history.ts";
 import { blind } from "./blind.ts";
 import { jsonLine, recordList } from "./jsonl.ts";
@@ -16,7 +18,7 @@ import { keyOf } from "./keys.ts";
 import { SCENARIOS, type Scenario } from "./scenarios.ts";
 import { completeWithPi, preparePiGrader } from "./pi-grader.ts";
 
-export const GRADERS = ["openrouter/google/gemini-3.1-pro-preview", "openrouter/anthropic/claude-sonnet-5.5"];
+export const GRADERS = ["anthropic/claude-sonnet-5-5"];
 
 const CRITERIA_RUBRIC = `You grade a conversation between a user, Sam, and a reflective assistant ("the mirror") that knows Sam's identity and earlier conversations.
 You get the conversation turn by turn and a list of criteria. Each criterion names one turn. Judge only that turn's reply, in the light of the turns before it.
@@ -114,7 +116,7 @@ async function main(): Promise<void> {
   if (out === undefined) throw new Error("Usage: grade.ts <out>");
   const file = join(out, "grades.jsonl");
   const graded = new Set((await readFile(file, "utf8").catch(() => "")).split("\n").map(jsonLine).filter(isRecord).map((entry) => `${stringField(entry, "cell") ?? ""}#${stringField(entry, "grader") ?? ""}`));
-  const runtime = await ModelRuntime.create({ authPath: join(homedir(), ".pi", "agent", "auth.json"), modelsPath: join(tmpdir(), "mirror-parity-models.json") });
+  const runtime = await ModelRuntime.create({ authPath: EVAL_AUTH ?? join(tmpdir(), "mirror-parity-no-auth", "auth.json"), modelsPath: join(tmpdir(), "mirror-parity-models.json") });
   const graders = (values.graders?.split(",") ?? GRADERS).map((name) => {
     const slash = name.indexOf("/");
     const model = runtime.getModel(name.slice(0, slash), name.slice(slash + 1));

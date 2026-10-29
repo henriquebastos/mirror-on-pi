@@ -22,4 +22,6 @@ pnpm test:integration
 pnpm test:mutants
 ```
 
+A change to `mirror-pi/instructions.md`, the Soul skill, or an extension also needs the real-model level: `MIRROR_EVAL_REPEAT=3 pnpm test:behavior` and `pnpm test:capability`. The capability gate must pass against the committed baseline. When a change alters what the frozen history makes, run the gate on the old baseline first, then regenerate the fixture and the baseline in one commit ([evals](mirror-pi/docs/evals.md#frozen-history)).
+
 Report every check you did not run.

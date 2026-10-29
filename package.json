@@ -9,11 +9,13 @@
   },
   "packageManager": "pnpm@11.5.2",
   "scripts": {
-    "check": "tsc -p . && eslint . && node --test mirror-pi/evals/contracts/",
-    "test": "node --test mirror-pi/evals/contracts/",
+    "check": "tsc -p . && eslint . && node --test mirror-pi/evals/contracts/ mirror-pi/evals/experiments/parity/",
+    "test": "node --test mirror-pi/evals/contracts/ mirror-pi/evals/experiments/parity/",
     "test:integration": "node --test --test-concurrency=1 mirror-pi/evals/integration/",
     "test:mutants": "node mirror-pi/evals/mutants.ts --integration",
-    "test:behavior": "node --test --test-concurrency=1 mirror-pi/evals/behavior/"
+    "test:behavior": "node --test --test-concurrency=1 mirror-pi/evals/behavior/",
+    "test:capability": "node mirror-pi/evals/experiments/parity/capability.ts run",
+    "doctor": "node mirror-pi/evals/doctor.ts"
   },
   "dependencies": {
     "yaml": "2.9.1"
@@ -24,6 +26,7 @@
     "@eslint/js": "10.0.1",
     "@types/node": "26.6.5",
     "eslint": "10.13.0",
+    "pi-cc-patch": "github:picassio/pi-cc-patch#fe58871de6317e1ac24bb33617db73b0cff66a5e",
     "typebox": "1.4.3",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.0"

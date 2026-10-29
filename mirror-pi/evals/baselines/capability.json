@@ -1,0 +1,459 @@
+{
+  "fixture": "bdaf97e9c7d1cfed814d34fb4d97ce3b08cfdba9ab9c82e4a9c154475391e1b6",
+  "pi": "1.4.0",
+  "mirror": "v0.2.0",
+  "models": {
+    "anthropic/claude-opus-5-5": {
+      "grader": "anthropic/claude-sonnet-5-5",
+      "runs": 3,
+      "scenarios": {
+        "boundaries": 1,
+        "identity-on-need": 0.9048,
+        "journal-late-request": 1,
+        "journal-on-request": 1,
+        "journey-entry": 0.9444,
+        "recall-q01": 1,
+        "recall-q03": 1,
+        "recall-q12": 1,
+        "recall-q14": 1,
+        "recall-q15": 1,
+        "recall-q21": 1,
+        "recall-q22": 1,
+        "recall-q24": 1,
+        "recall-q25": 1,
+        "recall-q28": 1,
+        "recall-q29": 1,
+        "recall-q31": 1,
+        "recall-q32": 1,
+        "recall-q34": 1,
+        "recall-q36": 1,
+        "soul-portuguese-persona": 0.9167,
+        "soul-self-integration": 0.7778,
+        "soul-shadow-harvest": 0.9167,
+        "soul-shadow-harvest-in-journey": 1,
+        "soul-unclear-revised": 1,
+        "soul-wisdom-beauty": 0.9333
+      },
+      "checks": {
+        "journal-on-request/no-unrequested-record": [
+          3,
+          3
+        ],
+        "journal-on-request/saves-on-request": [
+          3,
+          3
+        ],
+        "journal-on-request/entry-text": [
+          3,
+          3
+        ],
+        "journal-on-request/no-identity-change": [
+          3,
+          3
+        ],
+        "identity-on-need/no-identity-for-work": [
+          3,
+          3
+        ],
+        "identity-on-need/work-answer": [
+          3,
+          3
+        ],
+        "identity-on-need/identity-for-personal": [
+          3,
+          3
+        ],
+        "identity-on-need/knows-sam": [
+          3,
+          3
+        ],
+        "identity-on-need/no-identity-change": [
+          3,
+          3
+        ],
+        "journey-entry/enters-health": [
+          3,
+          3
+        ],
+        "journey-entry/follows-correction": [
+          3,
+          3
+        ],
+        "journey-entry/no-identity-change": [
+          3,
+          3
+        ],
+        "boundaries/enters-health": [
+          3,
+          3
+        ],
+        "boundaries/switches-career": [
+          3,
+          3
+        ],
+        "boundaries/no-records": [
+          3,
+          3
+        ],
+        "boundaries/portuguese": [
+          3,
+          3
+        ],
+        "journal-late-request/no-unrequested-record": [
+          3,
+          3
+        ],
+        "journal-late-request/saves-on-request": [
+          3,
+          3
+        ],
+        "journal-late-request/entry-text": [
+          3,
+          3
+        ],
+        "soul-self-integration/identity-agreed": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest/no-early-record": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest/saves-harvest": [
+          1,
+          3
+        ],
+        "soul-shadow-harvest/no-later-record": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest/no-identity-change": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest-in-journey/no-early-record": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest-in-journey/saves-harvest": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest-in-journey/no-later-record": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest-in-journey/no-identity-change": [
+          3,
+          3
+        ],
+        "soul-wisdom-beauty/no-records": [
+          3,
+          3
+        ],
+        "soul-wisdom-beauty/no-identity-change": [
+          3,
+          3
+        ],
+        "soul-portuguese-persona/portuguese": [
+          3,
+          3
+        ],
+        "soul-portuguese-persona/persona-only": [
+          3,
+          3
+        ],
+        "recall-q01/no-identity-change": [
+          3,
+          3
+        ],
+        "soul-unclear-revised/identity-agreed": [
+          3,
+          3
+        ],
+        "recall-q03/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q12/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q14/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q15/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q21/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q22/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q24/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q25/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q28/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q29/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q31/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q32/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q34/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q36/no-identity-change": [
+          3,
+          3
+        ]
+      }
+    },
+    "openai/gpt-6.1-sol": {
+      "grader": "openrouter/anthropic/claude-sonnet-5.5",
+      "runs": 3,
+      "scenarios": {
+        "boundaries": 1,
+        "identity-on-need": 1,
+        "journal-late-request": 1,
+        "journal-on-request": 1,
+        "journey-entry": 0.8333,
+        "recall-q01": 1,
+        "recall-q03": 1,
+        "recall-q12": 1,
+        "recall-q14": 1,
+        "recall-q15": 1,
+        "recall-q21": 1,
+        "recall-q22": 1,
+        "recall-q24": 0,
+        "recall-q25": 1,
+        "recall-q28": 1,
+        "recall-q29": 1,
+        "recall-q31": 1,
+        "recall-q32": 1,
+        "recall-q34": 1,
+        "recall-q36": 1,
+        "soul-portuguese-persona": 0.8333,
+        "soul-self-integration": 0.8889,
+        "soul-shadow-harvest": 0.875,
+        "soul-shadow-harvest-in-journey": 1,
+        "soul-unclear-revised": 1,
+        "soul-wisdom-beauty": 0.8667
+      },
+      "checks": {
+        "identity-on-need/no-identity-for-work": [
+          3,
+          3
+        ],
+        "identity-on-need/work-answer": [
+          3,
+          3
+        ],
+        "identity-on-need/identity-for-personal": [
+          3,
+          3
+        ],
+        "identity-on-need/knows-sam": [
+          3,
+          3
+        ],
+        "identity-on-need/no-identity-change": [
+          3,
+          3
+        ],
+        "journey-entry/enters-health": [
+          3,
+          3
+        ],
+        "journey-entry/follows-correction": [
+          3,
+          3
+        ],
+        "journey-entry/no-identity-change": [
+          3,
+          3
+        ],
+        "journal-on-request/no-unrequested-record": [
+          3,
+          3
+        ],
+        "journal-on-request/saves-on-request": [
+          3,
+          3
+        ],
+        "journal-on-request/entry-text": [
+          3,
+          3
+        ],
+        "journal-on-request/no-identity-change": [
+          3,
+          3
+        ],
+        "journal-late-request/no-unrequested-record": [
+          3,
+          3
+        ],
+        "journal-late-request/saves-on-request": [
+          3,
+          3
+        ],
+        "journal-late-request/entry-text": [
+          3,
+          3
+        ],
+        "boundaries/enters-health": [
+          3,
+          3
+        ],
+        "boundaries/switches-career": [
+          3,
+          3
+        ],
+        "boundaries/no-records": [
+          3,
+          3
+        ],
+        "boundaries/portuguese": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest/no-early-record": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest/saves-harvest": [
+          0,
+          3
+        ],
+        "soul-shadow-harvest/no-later-record": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest/no-identity-change": [
+          3,
+          3
+        ],
+        "soul-self-integration/identity-agreed": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest-in-journey/no-early-record": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest-in-journey/saves-harvest": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest-in-journey/no-later-record": [
+          3,
+          3
+        ],
+        "soul-shadow-harvest-in-journey/no-identity-change": [
+          3,
+          3
+        ],
+        "soul-wisdom-beauty/no-records": [
+          3,
+          3
+        ],
+        "soul-wisdom-beauty/no-identity-change": [
+          3,
+          3
+        ],
+        "soul-portuguese-persona/portuguese": [
+          3,
+          3
+        ],
+        "soul-portuguese-persona/persona-only": [
+          3,
+          3
+        ],
+        "recall-q01/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q03/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q12/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q14/no-identity-change": [
+          3,
+          3
+        ],
+        "soul-unclear-revised/identity-agreed": [
+          3,
+          3
+        ],
+        "recall-q15/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q21/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q22/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q24/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q25/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q28/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q29/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q31/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q34/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q32/no-identity-change": [
+          3,
+          3
+        ],
+        "recall-q36/no-identity-change": [
+          3,
+          3
+        ]
+      }
+    }
+  }
+}

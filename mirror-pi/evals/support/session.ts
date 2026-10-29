@@ -15,6 +15,7 @@ import { createJourneysExtension } from "../../extensions/journeys.ts";
 import { JOURNEY_ENTRY } from "../../src/journey.ts";
 import { assertNever } from "../../src/result.ts";
 import { REPO } from "./content.ts";
+import { ANTHROPIC_PATCH, EVAL_AUTH, needsAnthropicPatch } from "./credentials.ts";
 
 // The settings that scripts/mirror.sh copies into a new Mirror agent directory, with the model.
 export const MIRROR_SETTINGS = fileURLToPath(new URL("../../../agent/settings.json", import.meta.url));
@@ -27,7 +28,7 @@ process.env.PI_CODING_AGENT_DIR = EVAL_AGENT_DIR;
 
 type ThinkingLevel = NonNullable<NonNullable<Parameters<typeof createAgentSession>[0]>["thinkingLevel"]>;
 
-// A scripted model for wiring evals, or a real model through the personal Pi authentication.
+// A scripted model for wiring evals, or a real model through the credentials of credentials.ts.
 export type EvalModel =
   | { readonly kind: "scripted"; readonly responses: readonly FauxResponseStep[] }
   | { readonly kind: "real"; readonly provider: string; readonly id: string; readonly thinking: ThinkingLevel };
@@ -52,6 +53,8 @@ export async function openMirrorSession(options: MirrorSessionOptions): Promise<
     cwd: options.cwd,
     agentDir,
     noExtensions: true,
+    // An Anthropic subscription needs its request patch, as in the parity harness.
+    additionalExtensionPaths: options.model.kind === "real" && needsAnthropicPatch(options.model.provider) ? [ANTHROPIC_PATCH] : [],
     // Pi discovers skills as in a manual session: the Mirror package that the vault settings declare, and the vault's `.agents/skills`.
     // Personal skills under the home directory are left out, but not the package, which can live there too.
     skillsOverride: (base) => ({ skills: base.skills.filter((skill) => skill.filePath.startsWith(REPO) || !skill.filePath.startsWith(homedir() + sep)), diagnostics: base.diagnostics }),
@@ -97,8 +100,8 @@ async function modelFor(choice: EvalModel, agentDir: string): Promise<{ runtime:
       return { runtime, model: faux.getModel(), thinkingLevel: "off" };
     }
     case "real": {
-      // Use the personal auth file directly, so Pi's own lock serializes token refreshes.
-      const authPath = join(process.env.MIRROR_PERSONAL_PI_AGENT_DIR ?? join(homedir(), ".pi", "agent"), "auth.json");
+      // The named auth file directly, so Pi's own lock serializes token refreshes; without one, keys from the environment.
+      const authPath = EVAL_AUTH ?? join(agentDir, "auth.json");
       const runtime = await ModelRuntime.create({ authPath, modelsPath: join(agentDir, "models.json") });
       const model = runtime.getModel(choice.provider, choice.id);
       if (model === undefined) throw new Error(`Unknown model ${choice.provider}/${choice.id}`);

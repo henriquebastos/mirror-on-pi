@@ -71,6 +71,10 @@ pnpm check                 # types, lint, contract evals
 pnpm test:integration      # real Pi sessions with a scripted model
 pnpm test:mutants          # break each guarantee and require the evals to fail
 pnpm test:behavior         # the real chat model's observable behavior
+pnpm test:capability       # Mirror on GPT-6.1 Sol and Opus 5.5 against the committed baseline
+pnpm doctor                # tools, the pinned Pi, and model credentials
 ```
+
+The checks without a model run on any machine after `pnpm install`, and CI runs them on every push. The real-model checks take keys from `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`, or a Pi auth file named by `MIRROR_EVAL_AUTH`. See [evals](mirror-pi/docs/evals.md).
 
 The starter content in `starter/` is synthetic. See [NOTICE.md](NOTICE.md) for attribution.

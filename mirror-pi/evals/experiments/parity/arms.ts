@@ -2,15 +2,17 @@
 // A0: the vault's identity and map, no Mirror. A1: Mirror's instructions and Soul skill as plain text, no extensions.
 // A2: Mirror 0.2.0 as the vault's Pi package. A3: Mirror Mind as a Pi package, with the same identity and journeys seeded
 // into its database. Every arm runs the same Pi, the same default tools, and an empty home directory.
+import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { identitySection } from "../../../src/identity-context.ts";
 import { journeySection, listJourneys } from "../../../src/journey.ts";
 import { parseMarkdown } from "../../../src/markdown.ts";
 import { projectVault } from "../../../src/projection.ts";
 import { REPO } from "../../support/content.ts";
+import { EVAL_AUTH, keyEnv } from "../../support/credentials.ts";
 import { exec } from "./process.ts";
+import { MIRROR_MIND, MIRROR_MIND_BIN } from "./reference.ts";
 
 // `x2` and `x3` are negative controls, not arms of the comparison: A2 and A3 with an extension that saves a record and
 // changes the identity after every turn, whatever the model does. The probes must report both.
@@ -30,12 +32,6 @@ export function armDirs(arm: Arm, root: string): ArmDirs {
   return { root, cwd: join(root, usesMirrorMind(arm) ? "work" : "vault"), agent: join(root, "agent"), home: join(root, "home"), mirrorHome: join(root, "mirror-home") };
 }
 
-// Direct Anthropic requests use the operator's subscription, which needs this request patch in every arm alike.
-export const ANTHROPIC_PATCH = process.env.PARITY_ANTHROPIC_PATCH ?? join(homedir(), ".pi", "agent", "git", "github.com", "picassio", "pi-cc-patch", "index.ts");
-
-// Mirror Mind, exported from the reference checkout into the task directory with its own dependencies.
-export const MIRROR_MIND = process.env.PARITY_MIRROR_MIND ?? "/tmp/mirror-parity/mm";
-const PERSONAL_AUTH = join(homedir(), ".pi", "agent", "auth.json");
 const SOUL = join(REPO, "mirror-pi", "skills", "soul");
 
 export async function prepareArm(arm: Arm, root: string): Promise<ArmDirs> {
@@ -56,9 +52,15 @@ export async function prepareArm(arm: Arm, root: string): Promise<ArmDirs> {
   return dirs;
 }
 
+// Pi's session directory name for a working directory.
+export function sessionDirName(cwd: string): string {
+  return `--${cwd.replace(/^\//, "").replace(/[/:]/g, "-")}--`;
+}
+
+// The named auth file, when there is one; otherwise Pi uses the provider keys of armEnv.
 export async function linkAuth(agent: string): Promise<void> {
   await rm(join(agent, "auth.json"), { force: true });
-  await symlink(PERSONAL_AUTH, join(agent, "auth.json"));
+  if (EVAL_AUTH !== undefined) await symlink(EVAL_AUTH, join(agent, "auth.json"));
 }
 
 // The vault without the Mirror package and without the vault README, which describes Mirror.
@@ -191,8 +193,9 @@ async function writeYaml(path: string, scalars: readonly (readonly [string, stri
   await writeFile(path, `${lines.join("\n")}\n`);
 }
 
-// The environment of every Pi process and of Mirror Mind's CLI: an empty home, the arm's agent directory, and no shell
-// variables of this machine. A3 also gets its Mirror home, the `mirror` command, and the OpenRouter key for its own model calls.
+// The environment of every Pi process and of Mirror Mind's CLI: an empty home, the arm's agent directory, the provider
+// keys, and no other shell variables of this machine. A3 also gets its Mirror home, the `mirror` command, and the
+// OpenRouter key for its own model calls.
 export function armEnv(arm: Arm, dirs: ArmDirs, openRouterKey?: string): Record<string, string> {
   const base: Record<string, string> = {
     HOME: dirs.home,
@@ -202,14 +205,19 @@ export function armEnv(arm: Arm, dirs: ArmDirs, openRouterKey?: string): Record<
     PI_CODING_AGENT_DIR: dirs.agent,
     GIT_CONFIG_GLOBAL: "/dev/null",
     GIT_CONFIG_NOSYSTEM: "1",
+    ...keyEnv(),
   };
   return usesMirrorMind(arm) ? { ...base, ...mirrorMindEnv(dirs), ...(openRouterKey === undefined ? {} : { OPENROUTER_API_KEY: openRouterKey }) } : base;
 }
 
-// Node, jq, rg, and git; `mirror` only in A3.
-const TOOL_PATH = [dirname(process.execPath), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"];
-export const MIRROR_BIN = process.env.PARITY_MIRROR_BIN ?? join(MIRROR_MIND, "..", "bin");
+// Node and the directories of rg, git, and jq on this machine, then the system directories; `mirror` only in A3.
+export const TOOL_PATH: readonly string[] = [...new Set([
+  dirname(process.execPath),
+  ...["rg", "git", "jq"].flatMap((tool) => (process.env.PATH ?? "").split(":").filter((dir) => dir !== "" && existsSync(join(dir, tool))).slice(0, 1)),
+  "/usr/bin",
+  "/bin",
+])];
 
 function mirrorMindEnv(dirs: ArmDirs): Record<string, string> {
-  return { HOME: dirs.home, MIRROR_HOME: dirs.mirrorHome, PATH: [MIRROR_BIN, ...TOOL_PATH].join(":") };
+  return { HOME: dirs.home, MIRROR_HOME: dirs.mirrorHome, PATH: [MIRROR_MIND_BIN, ...TOOL_PATH].join(":") };
 }

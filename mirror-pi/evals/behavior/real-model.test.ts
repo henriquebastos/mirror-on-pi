@@ -1,4 +1,4 @@
-// Behavior evals with the real chat model from agent/settings.json, Mirror's default settings, through the personal Pi authentication.
+// Behavior evals with the real chat model from agent/settings.json, Mirror's default settings, with the credentials of support/credentials.ts.
 // Each check is an observable behavior: which tools the model calls and what the answer states.
 // Set MIRROR_EVAL_REPEAT to run each scenario more than once.
 import assert from "node:assert/strict";

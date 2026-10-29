@@ -27,6 +27,9 @@ importers:
       eslint:
         specifier: 10.13.0
         version: 10.13.0(jiti@2.7.0)
+      pi-cc-patch:
+        specifier: github:picassio/pi-cc-patch#fe58871de6317e1ac24bb33617db73b0cff66a5e
+        version: https://codeload.github.com/picassio/pi-cc-patch/tar.gz/fe58871de6317e1ac24bb33617db73b0cff66a5e
       typebox:
         specifier: 1.4.3
         version: 1.4.3
@@ -750,6 +753,10 @@ packages:
   path-key@3.1.1:
     resolution: {integrity: sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q==}
     engines: {node: '>=8'}
+
+  pi-cc-patch@https://codeload.github.com/picassio/pi-cc-patch/tar.gz/fe58871de6317e1ac24bb33617db73b0cff66a5e:
+    resolution: {gitHosted: true, integrity: sha512-QaBR6Ph8wjBtBohWxUbUZIfZSLnAtwabRwieenHgM0jazcxVTMLQCAQxWwppzq4hAo37TRfKYnaifhCizkIU/g==, tarball: https://codeload.github.com/picassio/pi-cc-patch/tar.gz/fe58871de6317e1ac24bb33617db73b0cff66a5e}
+    version: 1.0.3
 
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
@@ -1791,6 +1798,8 @@ snapshots:
   path-exists@4.0.0: {}
 
   path-key@3.1.1: {}
+
+  pi-cc-patch@https://codeload.github.com/picassio/pi-cc-patch/tar.gz/fe58871de6317e1ac24bb33617db73b0cff66a5e: {}
 
   picomatch@4.0.7: {}
 

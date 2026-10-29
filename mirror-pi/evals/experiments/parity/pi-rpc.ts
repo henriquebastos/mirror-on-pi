@@ -1,12 +1,13 @@
 // Run one scripted conversation in one real Pi process, in RPC mode, as one session with one lifetime:
 // session_start once, every user turn, then session_shutdown when stdin closes. Pi gets only the given environment.
 import { spawn } from "node:child_process";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { isRecord, stringField } from "../../../src/json.ts";
+import { REPO } from "../../support/content.ts";
 import { jsonLine } from "./jsonl.ts";
 
-export const PI = process.env.PARITY_PI ?? join(homedir(), ".local", "share", "pnpm", "pi");
+// The Pi that the repository pins, unless PARITY_PI names another one.
+export const PI = process.env.PARITY_PI ?? join(REPO, "node_modules", ".bin", "pi");
 
 export type ConversationOptions = {
   readonly cwd: string;

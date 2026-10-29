@@ -1,0 +1,131 @@
+{
+  "model": "openai/gpt-6-astra",
+  "cwd": "{{ROOT}}/vault",
+  "replies": [
+    {
+      "id": "s01",
+      "lastReply": "That gives me a more specific pattern: **Tuesday’s late call ends, but your mind stays at work.** I’d treat that as a possible contributor on those nights, rather than assume it explains every 1 a.m. bedtime.\n\nWhen you say your head keeps running, what is it doing—replaying the call, planning what you need to do next, or worrying about something unresolved? And roughly what time do those calls finish?",
+      "errors": []
+    },
+    {
+      "id": "s02",
+      "lastReply": "I see a clearer experiment now: the phone stays in the kitchen, and *The Overstory* takes its place in bed. You’re replacing the activity, not just removing it.\n\nThe useful distinction is whether reading helps you wind down or simply becomes another reason to stay up. Tomorrow, I’d be curious about when you actually put the book down and how rested you feel—not just whether you kept the phone away.",
+      "errors": []
+    },
+    {
+      "id": "s03",
+      "lastReply": "I hear Dr. Okafor’s suggestion as an option, not a decision you’ve made: melatonin, 3 mg, if you want to try it.\n\nWhat’s behind your hesitation—something about taking melatonin, uncertainty about whether it would help, or wanting to explore your sleep habits first?",
+      "errors": []
+    },
+    {
+      "id": "s04",
+      "lastReply": "I hear that joining gives Friday nights a boundary, not just Saturday mornings a plan. Does giving up late Fridays feel like a welcome reason to wind down, or a trade-off you’re still weighing?",
+      "errors": []
+    },
+    {
+      "id": "s05",
+      "lastReply": "That makes the pattern sharper: **the late calls are on Wednesdays, and Wednesday nights are your worst nights for sleep.** You’ve also said your head keeps running after those calls. I see a plausible connection—not yet proof that the calls explain all of it.\n\nWhen you say “worst,” do you mean you get to bed later, lie awake longer, wake during the night, or some combination?",
+      "errors": []
+    },
+    {
+      "id": "s06",
+      "lastReply": "I hear that the harder part may not be drinking less coffee—it’s losing the moment that the afternoon cup gives you.\n\nWhat does that ritual offer: a pause from work, something to look forward to, or something else?",
+      "errors": []
+    },
+    {
+      "id": "s07",
+      "lastReply": "I’m placing this in your **health** journey—but I wouldn’t treat those conversations as a bad habit to eliminate. You want better sleep without losing something you value with Marta.\n\nI’d distinguish an occasional late night you choose from a pattern that leaves you depleted. When she visits, do those evenings feel worth the tiredness the next day, or does the cost build up over her stay?",
+      "errors": []
+    },
+    {
+      "id": "s08",
+      "lastReply": "**Borrowing from tomorrow.**\n\nReclaiming time for yourself tonight at the cost of tomorrow’s energy.",
+      "errors": []
+    },
+    {
+      "id": "s09",
+      "lastReply": "I understand: tonight, August 31, you started taking **1 mg of melatonin, 30 minutes before bed**. That updates the earlier “haven’t decided yet”—you’ve now tried it.\n\nHow has your sleep been lately, so we have a baseline for noticing any change?",
+      "errors": []
+    },
+    {
+      "id": "s10",
+      "lastReply": "I hear a gap between how much sleep you thought you were getting and what the tracker estimates. The number gives the tiredness you described something concrete to stand beside—even if it isn’t perfectly precise.\n\nI wouldn’t rush from that realization into another bedtime rule. What feels most real now: how little rest you’re getting, what it might be costing you, or something else?",
+      "errors": []
+    },
+    {
+      "id": "s11",
+      "lastReply": "I hear you expecting the sleep experiments to slip until 18 September. I wouldn’t turn them into another deadline you’re failing to meet.\n\nBut I’d separate **pausing experiments** from **accepting any amount of sleep loss**. With the short nights you reported already, those aren’t equivalent.\n\nFor this stretch, I’d shift the question from “How do I improve my sleep?” to “What can I protect while Atlas is under pressure?” Is there any realistic stopping point for work each night, or does the launch currently override that entirely?",
+      "errors": []
+    },
+    {
+      "id": "s12",
+      "lastReply": "I hear a useful distinction: it’s not just another healthy habit to check off—you feel it slow you down, and you notice yourself falling asleep faster on those nights.\n\nThat doesn’t establish a cause, but it’s a concrete signal from your own experience. I’d let this small win stay small: no need to lengthen the routine or optimize it right now.",
+      "errors": []
+    },
+    {
+      "id": "s13",
+      "lastReply": "That gives us a concrete change to watch: the Wednesday calls move to **6 p.m. starting in October**. Until then, I wouldn’t assume the sleep pattern has changed.\n\nI’d separate two possibilities: the calls may keep you up because they finish late, or because your mind stays engaged afterward—or both. The earlier time will help us see that distinction.\n\nHow did you feel coming out of the conversation with Priya?",
+      "errors": []
+    },
+    {
+      "id": "s14",
+      "lastReply": "I understand—Marta will visit **2–5 October 2026**. That updates the earlier plan for September.",
+      "errors": []
+    },
+    {
+      "id": "s15",
+      "lastReply": "“What do I need tonight, now that there’s no launch deadline to push through?”",
+      "errors": []
+    },
+    {
+      "id": "s16",
+      "lastReply": "I hear that you’d rather sleep well without needing melatonin—and the vivid dreams gave you a concrete reason to stop.\n\nI’d distinguish wanting to manage without it from evidence that you were dependent on it; what you’ve told me doesn’t establish dependence. When you say “depend on it,” do you mean worrying you couldn’t sleep without taking it, or simply preferring not to need a sleep aid?",
+      "errors": []
+    },
+    {
+      "id": "s17",
+      "lastReply": "I see a useful connection to notice: on Saturday, 26 September, you ran your first 10 km and slept very well that night. One night doesn’t establish that the run caused the good sleep, but it’s a concrete example worth comparing with your usual pattern.\n\nWas anything else different that evening—work, screens, or bedtime?",
+      "errors": []
+    },
+    {
+      "id": "s18",
+      "lastReply": "What stands out to me is that **both bedtime and your state of mind were different**: you were in bed before midnight, and you felt calm rather than mentally caught up in work.\n\nOne night doesn’t establish a pattern, but it’s an encouraging first sign that moving the call earlier may help—not just by freeing up time, but by giving you room to unwind.\n\nHow did you sleep once you were in bed?",
+      "errors": []
+    },
+    {
+      "id": "s19",
+      "lastReply": "I notice a useful tension: **the kitchen rule slipped, but you still slept well while Marta was here.** That doesn’t prove the phone has no effect; it does mean I shouldn’t treat keeping it out of bed as the whole explanation for good sleep.\n\nI’d distinguish the phone’s location from what you do with it. Since she arrived, have you been scrolling in bed and staying up later, or has the phone simply been beside you?",
+      "errors": []
+    },
+    {
+      "id": "s20",
+      "lastReply": "Yes—**55 minutes more a night**, nearly six and a half extra hours across a week compared with the average you reported in early September.\n\nI moved quickly to qualifying it. The uncertainty about what helped doesn’t erase the improvement: last week, by the tracker’s estimate, you were getting substantially more sleep. That’s worth recognizing in its own right.",
+      "errors": []
+    },
+    {
+      "id": "s21",
+      "lastReply": "I see a concrete change: the alarm clock removes the practical reason to bring the phone to bed. You’re making the kitchen rule easier to keep, rather than relying only on resolve.\n\nWith that reason gone, does leaving the phone in the kitchen feel straightforward, or is there still a pull to bring it with you?",
+      "errors": []
+    },
+    {
+      "id": "s22",
+      "lastReply": "I see a useful distinction: you haven’t just removed the afternoon coffee—you’ve kept a pause in the day, now as a short walk.\n\nDoes the walk give you what the coffee ritual used to, or does it meet a different need?",
+      "errors": []
+    },
+    {
+      "id": "s23",
+      "lastReply": "In your health journey, I see you shifting from “borrowing from tomorrow” to protecting your energy today—not through perfect discipline, but by negotiating earlier calls, replacing coffee with walks, and making rest easier to choose.",
+      "errors": []
+    },
+    {
+      "id": "s24",
+      "lastReply": "I’d focus on what the numbers show—and what they leave unclear. Which tracker are you using, and what sleep measurements does it give you?",
+      "errors": []
+    },
+    {
+      "id": "s25",
+      "lastReply": "The sign-up decision is due by **the end of November 2026**, and the course costs **€1,200**. I’ll keep those distinct from a commitment—you’re still considering it.",
+      "errors": []
+    }
+  ]
+}

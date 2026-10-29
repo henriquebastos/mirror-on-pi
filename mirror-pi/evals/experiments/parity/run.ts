@@ -1,21 +1,25 @@
 // The parity comparison runner. Run directories must be outside every Git repository with an AGENTS.md above them,
 // because Pi loads context files from the working directory upward; the default is under /tmp.
 // Usage:
-//   node mirror-pi/evals/experiments/parity/run.ts prepare <out> [--arms a0,a1,a2,a3] [--history]
+//   node mirror-pi/evals/experiments/parity/run.ts prepare <out> [--arms a0,a1,a2,a3] [--history | --fixture]
+//   node mirror-pi/evals/experiments/parity/run.ts freeze <out>
 //   node mirror-pi/evals/experiments/parity/run.ts cells <out> --models openai/gpt-6-astra,... [--arms ...] [--scenarios ...] [--repeat 1] [--concurrency 6]
-import { appendFile, cp, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { appendFile, cp, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { isRecord, stringField } from "../../../src/json.ts";
 import { jsonLine, recordList } from "./jsonl.ts";
 import { cellId } from "./keys.ts";
-import { ALL_ARMS, ANTHROPIC_PATCH, ARMS, armDirs, armEnv, linkAuth, prepareArm, usesMirrorMind, type Arm, type ArmDirs } from "./arms.ts";
+import { ANTHROPIC_PATCH, EVAL_AUTH, keyEnv, needsAnthropicPatch } from "../../support/credentials.ts";
+import { ALL_ARMS, ARMS, armDirs, armEnv, linkAuth, prepareArm, sessionDirName, TOOL_PATH, usesMirrorMind, type Arm, type ArmDirs } from "./arms.ts";
+import { freeze, materialize } from "./fixture.ts";
 import { firstPrompt, HISTORY } from "./history.ts";
 import { mirrorMindCost, readTurns, snapshot, type State, type Turn } from "./observe.ts";
-import { runConversation } from "./pi-rpc.ts";
+import { PI, runConversation } from "./pi-rpc.ts";
 import { changedLayers, changedRecords, evaluate, journeyAfter } from "./probes.ts";
 import { exec } from "./process.ts";
+import { installMirrorMind } from "./reference.ts";
 import { SCENARIOS, type Scenario } from "./scenarios.ts";
 
 export const HISTORY_MODEL = "openai/gpt-6-astra";
@@ -27,22 +31,26 @@ function modelArgs(model: string): readonly string[] {
   const slash = model.indexOf("/");
   if (slash < 1) throw new Error(`Model must be provider/id: ${model}`);
   const provider = model.slice(0, slash);
-  const patch = provider === "anthropic" ? ["-e", ANTHROPIC_PATCH] : [];
+  const patch = needsAnthropicPatch(provider) ? ["-e", ANTHROPIC_PATCH] : [];
   return ["--provider", provider, "--model", model.slice(slash + 1), "--thinking", "medium", "--no-mcp", "--offline", "-a", ...patch];
 }
 
-async function openRouterKey(): Promise<string> {
-  const env = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined && !entry[0].startsWith("PI_") && !entry[0].startsWith("AI_MEMORY_")));
-  return (await exec(join(homedir(), ".local", "share", "pnpm", "pi"), ["auth", "print-api-key", "--provider", "openrouter"], { env })).trim();
+// Mirror Mind's own model calls go through OpenRouter: the key from the environment, or from the named auth file.
+async function openRouterKey(arms: readonly Arm[]): Promise<string | undefined> {
+  if (!arms.some(usesMirrorMind)) return undefined;
+  const fromEnv = keyEnv().OPENROUTER_API_KEY;
+  if (fromEnv !== undefined || EVAL_AUTH === undefined) return fromEnv;
+  const agent = await mkdtemp(join(tmpdir(), "mirror-parity-key-"));
+  try {
+    await symlink(EVAL_AUTH, join(agent, "auth.json"));
+    return (await exec(PI, ["auth", "print-api-key", "--provider", "openrouter"], { env: { HOME: agent, PATH: TOOL_PATH.join(":"), PI_CODING_AGENT_DIR: agent } })).trim();
+  } finally {
+    await rm(agent, { recursive: true, force: true });
+  }
 }
 
 async function exists(path: string): Promise<boolean> {
   return (await stat(path).catch(() => undefined)) !== undefined;
-}
-
-// Pi's session directory name for a working directory.
-export function sessionDirName(cwd: string): string {
-  return `--${cwd.replace(/^\//, "").replace(/[/:]/g, "-")}--`;
 }
 
 async function newestSession(dir: string): Promise<string | undefined> {
@@ -51,18 +59,22 @@ async function newestSession(dir: string): Promise<string | undefined> {
   return last === undefined ? undefined : join(dir, last);
 }
 
-// Each arm without history (`fresh`), then the same arm after replaying the history once (`history`).
-async function prepare(out: string, arms: readonly Arm[], withHistory: boolean): Promise<void> {
-  const key = await openRouterKey();
+// Each arm without history (`fresh`), then the same arm after the history (`history`): replayed with the history model,
+// or, for A2 only, materialized from the frozen fixture without a model call.
+async function prepare(out: string, arms: readonly Arm[], history: "none" | "replay" | "fixture"): Promise<void> {
+  if (history === "fixture" && arms.some((arm) => arm !== "a2")) throw new Error("--fixture has only an A2 history");
+  if (arms.some(usesMirrorMind)) await installMirrorMind();
+  const key = await openRouterKey(arms);
   await Promise.all(arms.map(async (arm) => {
     // An arm is prepared once: preparing it again would add Mirror's text a second time.
     const freshRoot = join(out, "base", "fresh", arm);
     const fresh = (await exists(freshRoot)) ? armDirs(arm, freshRoot) : await prepareArm(arm, freshRoot);
-    if (withHistory) await replayHistory(arm, fresh, join(out, "base", "history", arm), key);
+    if (history === "replay") await replayHistory(arm, fresh, join(out, "base", "history", arm), key);
+    if (history === "fixture") await materialize(freshRoot, join(out, "base", "history", arm));
   }));
 }
 
-async function replayHistory(arm: Arm, fresh: ArmDirs, target: string, key: string): Promise<void> {
+async function replayHistory(arm: Arm, fresh: ArmDirs, target: string, key: string | undefined): Promise<void> {
   await cp(fresh.root, target, { recursive: true, verbatimSymlinks: true });
   const dirs = armDirs(arm, target);
   const replies: HistoryReply[] = [];
@@ -79,7 +91,7 @@ async function replayHistory(arm: Arm, fresh: ArmDirs, target: string, key: stri
 
 // Mirror Mind extracts a conversation at the next session start. After the last history session, run that maintenance
 // until nothing is carried over, as the user's next sessions would.
-async function finishMirrorMind(dirs: ArmDirs, key: string): Promise<void> {
+async function finishMirrorMind(dirs: ArmDirs, key: string | undefined): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 10_000));
   for (let round = 0; round < 10; round++) {
     const output = await exec("mirror", ["conversation-logger", "session-maintenance"], { env: armEnv("a3", dirs, key) });
@@ -107,7 +119,7 @@ async function cloneBase(out: string, key: CellKey, scenario: Scenario): Promise
   return dirs;
 }
 
-async function runCell(out: string, key: CellKey, scenario: Scenario, openRouter: string): Promise<Readonly<Record<string, unknown>>> {
+async function runCell(out: string, key: CellKey, scenario: Scenario, openRouter: string | undefined): Promise<Readonly<Record<string, unknown>>> {
   const started = Date.now();
   const dirs = await cloneBase(out, key, scenario);
   const since = new Date(started - 1000).toISOString();
@@ -174,7 +186,7 @@ async function cells(out: string, options: { arms: readonly Arm[]; models: reado
     for (const model of options.models) for (const spec of options.scenarios) for (const arm of options.arms) keys.push({ arm, model, scenario: spec.id, rep, spec });
   const pending = keys.filter((key) => !finished.has(cellId(key)));
   console.log(`${String(pending.length)} cells to run (${String(keys.length - pending.length)} already done)`);
-  const key = await openRouterKey();
+  const key = await openRouterKey(options.arms);
   let next = 0;
   const worker = async (): Promise<void> => {
     for (let cell = pending[next++]; cell !== undefined; cell = pending[next++]) {
@@ -188,14 +200,24 @@ async function cells(out: string, options: { arms: readonly Arm[]; models: reado
   await Promise.all(Array.from({ length: options.concurrency }, worker));
 }
 
+function historyMode(values: { readonly history?: boolean; readonly fixture?: boolean }): "none" | "replay" | "fixture" {
+  if (values.fixture === true) return "fixture";
+  return values.history === true ? "replay" : "none";
+}
+
 async function main(): Promise<void> {
-  const { positionals, values } = parseArgs({ allowPositionals: true, options: { arms: { type: "string" }, models: { type: "string" }, scenarios: { type: "string" }, repeat: { type: "string" }, concurrency: { type: "string" }, history: { type: "boolean" } } });
+  const { positionals, values } = parseArgs({ allowPositionals: true, options: { arms: { type: "string" }, models: { type: "string" }, scenarios: { type: "string" }, repeat: { type: "string" }, concurrency: { type: "string" }, history: { type: "boolean" }, fixture: { type: "boolean" } } });
   const [command, target] = positionals;
-  if (target === undefined) throw new Error("Usage: run.ts prepare|cells <out> [options]");
+  if (target === undefined) throw new Error("Usage: run.ts prepare|freeze|cells <out> [options]");
   await mkdir(target, { recursive: true });
   const out = await realpath(target);
   const arms = values.arms === undefined ? ARMS : values.arms.split(",").filter((arm): arm is Arm => ALL_ARMS.some((known) => known === arm));
-  if (command === "prepare") return prepare(out, arms, values.history === true);
+  if (command === "prepare") return prepare(out, arms, historyMode(values));
+  // Write the A2 history of this run as the repository's fixture, after a replay (see fixture.ts).
+  if (command === "freeze") {
+    await freeze(join(out, "base", "fresh", "a2"), join(out, "base", "history", "a2"));
+    return;
+  }
   if (command !== "cells" || values.models === undefined) throw new Error("cells needs --models");
   const wanted = values.scenarios?.split(",");
   const scenarios = SCENARIOS.filter((spec) => wanted === undefined || wanted.includes(spec.id) || wanted.includes(spec.family));
