@@ -1,4 +1,5 @@
 // Explicit records: journal entries and corrections, written as Markdown files in the journey directory.
+// A journal entry without a journey goes to the vault root's `journal/`; a correction always needs a journey.
 // A record never replaces an earlier one: a taken name gets the next free number.
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -11,7 +12,9 @@ import { slugify } from "./slug.ts";
 export type RecordKind = "journal" | "correction";
 
 export type RecordContext = {
-  readonly journey: Journey;
+  readonly journey: Pick<Journey, "dir" | "slug"> | undefined;
+  // The vault root: the session's starting directory.
+  readonly root: string;
   readonly sessionId: string | undefined;
   readonly now: () => Date;
 };
@@ -39,7 +42,7 @@ export async function saveJournal(context: RecordContext, input: JournalInput): 
   if (title === "" || body === "") return err("A journal entry needs a title and a body");
   const date = context.now();
   return write(context, "journal", date, title, {
-    frontmatter: { type: "journal", title, date: date.toISOString(), journey: context.journey.slug, session: context.sessionId ?? null },
+    frontmatter: { type: "journal", title, date: date.toISOString(), journey: context.journey?.slug ?? null, session: context.sessionId ?? null },
     body: `# ${title}\n\n${body}\n\n_Journal entry, ${date.toISOString().slice(0, 10)}._`,
   });
 }
@@ -49,6 +52,8 @@ export async function recordCorrection(context: RecordContext, input: Correction
   if (topic === "" || input.previous.trim() === "" || input.corrected.trim() === "") {
     return err("A correction needs a topic, the previous belief, and the corrected belief");
   }
+  const journey = context.journey;
+  if (journey === undefined) return err("A correction needs a journey");
   const date = context.now();
   // The corrected belief comes first so a search shows what is true now.
   const lines = [
@@ -62,13 +67,13 @@ export async function recordCorrection(context: RecordContext, input: Correction
   const note = input.note?.trim();
   if (note !== undefined && note !== "") lines.push("", note);
   return write(context, "correction", date, topic, {
-    frontmatter: { type: "correction", topic, date: date.toISOString(), journey: context.journey.slug, session: context.sessionId ?? null },
+    frontmatter: { type: "correction", topic, date: date.toISOString(), journey: journey.slug, session: context.sessionId ?? null },
     body: lines.join("\n"),
   });
 }
 
 async function write(context: RecordContext, kind: RecordKind, date: Date, title: string, document: { frontmatter: JsonRecord; body: string }): Promise<Result<RecordReceipt, string>> {
-  const directory = join(context.journey.dir, DIRECTORIES[kind]);
+  const directory = join(context.journey?.dir ?? context.root, DIRECTORIES[kind]);
   await mkdir(directory, { recursive: true });
   const stem = `${date.toISOString().slice(0, 10)}-${slugify(title)}`;
   const text = renderMarkdown(document.frontmatter, document.body);

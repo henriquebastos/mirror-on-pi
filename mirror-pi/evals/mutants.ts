@@ -27,11 +27,32 @@ const MUTANTS: readonly Mutant[] = [
     suite: CONTRACTS,
   },
   {
-    name: "a record is saved outside a journey",
+    name: "a correction is saved outside a journey",
     file: "mirror-pi/src/pi.ts",
     from: "if (journey === undefined) throw",
     to: "if (journey === null) throw",
     suite: INTEGRATION,
+  },
+  {
+    name: "a correction record without a journey is written",
+    file: "mirror-pi/src/records.ts",
+    from: 'if (journey === undefined) return err("A correction needs a journey");',
+    to: 'if (journey === null) return err("A correction needs a journey");',
+    suite: CONTRACTS,
+  },
+  {
+    name: "a journal entry without a journey is refused",
+    file: "mirror-pi/extensions/journal.ts",
+    from: "const journey = await sessionJourney(ctx);",
+    to: 'const journey = await sessionJourney(ctx);\n        if (journey === undefined) throw new Error("no journey");',
+    suite: INTEGRATION,
+  },
+  {
+    name: "a journal entry without a journey goes somewhere else than the vault's journal/",
+    file: "mirror-pi/src/records.ts",
+    from: "join(context.journey?.dir ?? context.root, DIRECTORIES[kind])",
+    to: 'join(context.journey?.dir ?? join(context.root, "journeys"), DIRECTORIES[kind])',
+    suite: CONTRACTS,
   },
   {
     name: "the session search looks in another directory",

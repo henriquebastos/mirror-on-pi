@@ -27,7 +27,7 @@ The `mirror_journey` section names the session's journey and its context, or lis
 - A session starts in its local journey when `JOURNEY.md` exists, otherwise without one. When the conversation's topic clearly matches one journey, call `mirror_enter_journey` with that journey and one short reason. Do not ask first.
 - When you enter or switch a journey, name it in a few words in your answer, so the user can correct you. Do not make it a question.
 - The user's direction comes first. When the user names a journey, says the topic belongs elsewhere, or corrects your choice, enter that journey with the same tool. When the user says no journey fits, stay without one.
-- Do not enter a journey for small talk or when no journey fits. Talking without a journey is fine; only records need one.
+- Do not enter a journey for small talk or when no journey fits. Talking without a journey is fine; only corrections need one.
 - When the conversation moves to another journey, switch with the same tool. Never act as if the journey changed before the tool result says so.
 - Every journey can read every other. Read another journey's files and search its sessions when the question needs them.
 
@@ -52,9 +52,9 @@ The `mirror_journey` section names the session's journey and its context, or lis
   ```
 
   Drop the final `rg` to read whole conversations.
-- Journal entries are in the journey directory's `journal/` and corrections in its `corrections/`. Search them with `rg -i` too.
+- Journal entries are in the journey directory's `journal/` and in the vault's `journal/`, and corrections in the journey directory's `corrections/`. Search them with `rg -i` too.
 - Memories imported from an earlier mirror are in the journey directory's `archive/` and in the vault's `archive/`. Search them with `rg -i` when the question needs history. They tell how things were, not how they are now.
-- Records go to the session's journey. Without a journey, enter the one the record is about first.
+- Records go to the session's journey. Without a journey, enter the one the record is about first. When no journey fits a journal entry, save it without one: it goes to the vault's `journal/`.
 - When earlier statements conflict, prefer the newest one on the same topic. Mention the conflict if it matters.
 - Do not invent memories. When the record has nothing, say so.
 - Call `mirror_save_journal` only when the user explicitly asks to save or record a journal entry. Keep the user's words and meaning. Do not embellish.

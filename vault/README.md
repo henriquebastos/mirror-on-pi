@@ -14,7 +14,7 @@ This vault is a Git repository. `mirror-init` in the Mirror repository builds it
 - `identity/` — who the mirror is and who it speaks with. The model has the hard constraints and the list of files in every session, and reads the files when the conversation is personal. It changes them only to append a Soul Mode integration that you agree to.
 - Soul Mode comes with Mirror, not from a file here. Start it with `/skill:soul` or by asking for Soul Mode.
 - `journeys/<slug>/JOURNEY.md` — one durable topic of your life and its context, for the mirror only. Each directory below `journeys/` is a journey, and so is each directory listed in the map. The `description` in its front matter tells the mirror when the journey fits.
-- `journal/` and `corrections/` in the journey's directory — journal entries and corrections saved on request.
+- `journal/` and `corrections/` in the journey's directory — journal entries and corrections saved on request. A journal entry saved without a journey goes to `journal/` at the vault root.
 - `journeys/<slug>/files/` — your own PDFs, images, and notes for the journey.
 
 Conversations are Pi's session files, and the mirror searches the sessions of the Pi agent directory it runs with. With your own `pi`, they stay in your Pi session directory, outside the vault. `scripts/mirror.sh` uses Mirror's own agent directory, `.pi/agent/`, with a link to your Pi `auth.json`, so its sessions are in `.pi/agent/sessions/`. There, `.pi/.gitignore` lets you commit the sessions and settings, and keeps the auth link, trust decisions, and caches out of Git.

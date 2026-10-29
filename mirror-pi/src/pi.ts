@@ -7,12 +7,18 @@ import type { Result } from "./result.ts";
 
 export type ToolText = { content: { type: "text"; text: string }[]; details: JsonRecord };
 
-// The journey the session entered, or the journey directory the session started in. Records need one.
-export async function requireJourney(ctx: ExtensionContext): Promise<Journey> {
+// The journey the session entered, or the journey directory the session started in, or none.
+export async function sessionJourney(ctx: ExtensionContext): Promise<Journey | undefined> {
   const slug = boundSlug(ctx.sessionManager.getBranch());
   const journey = slug === undefined ? await localJourney(ctx.cwd) : await findJourneyBySlug(ctx.cwd, slug);
   if (slug !== undefined && journey === undefined) throw new Error(`The journey ${slug} is no longer in the vault. Enter another journey with mirror_enter_journey.`);
-  if (journey === undefined) throw new Error("This session has no journey. Propose one with mirror_enter_journey; records are saved only in a journey.");
+  return journey;
+}
+
+// The session's journey, for records that need one: corrections.
+export async function requireJourney(ctx: ExtensionContext): Promise<Journey> {
+  const journey = await sessionJourney(ctx);
+  if (journey === undefined) throw new Error("This session has no journey. Propose one with mirror_enter_journey; corrections are saved only in a journey.");
   return journey;
 }
 

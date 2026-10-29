@@ -23,7 +23,7 @@ export function createCorrectionsExtension(now: () => Date = () => new Date()): 
       }),
       execute: async (_id, params, _signal, _update, ctx) => {
         const journey = await requireJourney(ctx);
-        return receiptResult(await recordCorrection({ journey, sessionId: sessionId(ctx), now }, { ...params, note: params.note }));
+        return receiptResult(await recordCorrection({ journey, root: ctx.cwd, sessionId: sessionId(ctx), now }, { ...params, note: params.note }));
       },
     });
   };

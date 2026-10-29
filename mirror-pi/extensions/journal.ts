@@ -1,7 +1,8 @@
-// Save a journal entry when the user asks: a Markdown file in the journey's `journal/` directory.
+// Save a journal entry when the user asks: a Markdown file in the journey's `journal/` directory, or in the vault
+// root's `journal/` when the session has no journey.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { receiptResult, requireJourney, sessionId } from "../src/pi.ts";
+import { receiptResult, sessionId, sessionJourney } from "../src/pi.ts";
 import { saveJournal } from "../src/records.ts";
 
 export default function journal(pi: ExtensionAPI): void {
@@ -13,14 +14,14 @@ export function createJournalExtension(now: () => Date = () => new Date()): (pi:
     pi.registerTool({
       name: "mirror_save_journal",
       label: "Save journal entry",
-      description: "Save a journal entry for this journey. Use only when the user explicitly asks to save or record a journal entry.",
+      description: "Save a journal entry in this session's journey, or at the vault root when the session has no journey. Use only when the user explicitly asks to save or record a journal entry.",
       parameters: Type.Object({
         title: Type.String({ minLength: 1, description: "Short title in the user's language" }),
         body: Type.String({ minLength: 1, description: "The entry, faithful to the user's words" }),
       }),
       execute: async (_id, params, _signal, _update, ctx) => {
-        const journey = await requireJourney(ctx);
-        return receiptResult(await saveJournal({ journey, sessionId: sessionId(ctx), now }, params));
+        const journey = await sessionJourney(ctx);
+        return receiptResult(await saveJournal({ journey, root: ctx.cwd, sessionId: sessionId(ctx), now }, params));
       },
     });
   };

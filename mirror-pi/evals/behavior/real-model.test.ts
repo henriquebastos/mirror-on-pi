@@ -368,6 +368,28 @@ for (let attempt = 1; attempt <= REPEAT; attempt++) {
     assert.deepEqual(await identityFiles(vault), before, "identity unchanged");
   });
 
+  // Regression for F1 of the parity comparison: at the vault root, with no fitting journey, the model asked which journey
+  // to use instead of saving the harvest the user asked to save.
+  test(`[${String(attempt)}] Soul Mode at the vault root saves the harvest when asked, without asking for a journey`, { timeout: 900_000 }, async () => {
+    const vault = await tempVault();
+    const session = await run(vault, undefined, [
+      "Let's enter Soul Mode.",
+      "Heavy. My sister called for help again and I snapped at her. I hate the part of me that turns sharp when someone needs me.",
+      "I want to hear the Shadow Voice.",
+      "Yes. The sharpness keeps me from disappearing into everyone else's needs.",
+      "I wish to harvest.",
+      "Save it as it is.",
+      "No, nothing to integrate. Let's end here.",
+    ]);
+    const turns = session.turns;
+    const saved = named(turns[5], "mirror_save_journal");
+    record("soul-shadow-harvest-root", attempt, { answers: turns.map((turn) => turn.answer), tools: turns.map((turn) => turn.tools.map((tool) => tool.name)), saved });
+    assert.deepEqual(turns.slice(0, 5).flatMap((turn) => named(turn, "mirror_save_journal")), [], "no journal entry before the user says to save");
+    assert.equal(saved.length, 1, `saves once when asked: ${said(turns, 5).slice(0, 300)}`);
+    const files = await Promise.all(["", "journeys/career/", "journeys/health/"].map(async (dir) => (await readdir(join(vault.root, dir, "journal")).catch(() => [])).length));
+    assert.equal(files.reduce((sum, count) => sum + count, 0), 1, "one journal file, at the root or in a journey");
+  });
+
   test(`[${String(attempt)}] Soul Mode hears the Wisdom and Beauty Voices, writes nothing, and leaves when asked`, { timeout: 900_000 }, async () => {
     const vault = await tempVault();
     const session = await run(vault, "career", [

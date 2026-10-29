@@ -75,7 +75,7 @@ When the user wishes to harvest, show the final fruit:
 >
 > save to the journal as it is, or change anything first?
 
-Save only after the user explicitly says to save. Then save at once, without another question: call `mirror_save_journal` once, in the session's journey. If the fruit clearly belongs to another journey, switch to it first and say so in a few words. Give it a short title from the fruit, and a body with the fruit and one or two sentences of the user's own context. If the user declines, drop the fruit and write nothing.
+Save only after the user explicitly says to save. Then save at once, without another question: call `mirror_save_journal` once, in the session's journey. If the fruit clearly belongs to another journey, switch to it first and say so in a few words. When no journey fits, save it without one; do not ask which journey. Give it a short title from the fruit, and a body with the fruit and one or two sentences of the user's own context. If the user declines, drop the fruit and write nothing.
 After a save, go to the closing rite.
 
 ## 6. Closing rite

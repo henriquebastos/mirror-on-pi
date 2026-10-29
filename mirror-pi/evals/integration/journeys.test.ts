@@ -300,15 +300,21 @@ test("journal entries and corrections are saved as files in the session's journe
   assert.match(messagesText(seen[0]), /Saved journal to .*journal\/.*Saved correction to .*corrections\//);
 });
 
-test("a session without a journey cannot save records", async () => {
+test("a session without a journey saves a journal entry at the vault root, and no correction", async () => {
   const vault = await tempVault();
   const seen: TranscriptContext[] = [];
-  await atRoot(vault, ["Save a journal entry: not in a journey."], [
+  await atRoot(vault, ["Save a journal entry: not in a journey. Also record that the calls are on Wednesdays now."], [
     callTool("mirror_save_journal", { title: "Loose", body: "Not in a journey." }),
-    observe(seen, "I could not save it."),
+    callTool("mirror_record_correction", { topic: "Calls", previous: "Tuesdays", corrected: "Wednesdays" }),
+    observe(seen, "Saved the entry; the correction needs a journey."),
   ]);
-  assert.match(messagesText(seen[0]), /This session has no journey\. Propose one with mirror_enter_journey/);
-  await assert.rejects(readdir(join(vault.root, "journal")));
+  const journal = await readdir(join(vault.root, "journal"));
+  assert.equal(journal.length, 1);
+  assert.match(await readFile(join(vault.root, "journal", journal[0] ?? ""), "utf8"), /journey: null[\s\S]*Not in a journey\./);
+  assert.match(messagesText(seen[0]), /Saved journal to .*\/journal\//);
+  assert.match(messagesText(seen[0]), /This session has no journey\. Propose one with mirror_enter_journey; corrections are saved only in a journey/);
+  await assert.rejects(readdir(join(vault.root, "corrections")));
+  for (const journey of ["career", "health"]) await assert.rejects(readdir(join(vault.journey(journey), "journal")));
 });
 
 test("Mirror's extensions and Soul skill load as a Pi package only at the root of a trusted vault", async () => {

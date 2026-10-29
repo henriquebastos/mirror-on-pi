@@ -16,7 +16,7 @@ Mirror is plain Pi with a few small extensions. The session cwd is the content r
 | A journey | A directory in the vault | The cwd itself when it holds `JOURNEY.md`, a directory directly below `journeys/`, or a directory listed in the `## Journeys` section of the vault map as `` - `slug`: `path/` ``: the present state of one topic and what is known about it. Its `JOURNEY.md` holds the journey context, for the mirror only: Pi does not load it as a context file, so other agents in that directory do not get it. A listed directory that is missing on this machine, or outside the vault, is not a journey. |
 | Journeys in a session | `mirror-pi/extensions/journeys.ts` | See [Journeys](#journeys). |
 | Conversation history and memory | Pi session files | Pi stores sessions per working directory in `<agent dir>/sessions/--<path>--/`. Mirror's instructions give the model a `jq` and `rg` command that searches the user's and the mirror's messages in every session of the vault: the vault root and every directory below it. |
-| Journal entries | `mirror-pi/extensions/journal.ts` | `mirror_save_journal`: a Markdown file in the session journey's `journal/`. |
+| Journal entries | `mirror-pi/extensions/journal.ts` | `mirror_save_journal`: a Markdown file in the session journey's `journal/`, or in the vault's `journal/` when the session has no journey. |
 | Corrections | `mirror-pi/extensions/corrections.ts` | `mirror_record_correction`: a Markdown file in the session journey's `corrections/` that states what is true now. |
 | A vault | `mirror-pi/src/projection.ts` | `mirror-init` projects this repository into a vault with its own Git repository. See [Vault projection](#vault-projection). |
 | Loading the extensions | The vault's `.pi/settings.json` | Declares this repository as a Pi package. The `pi` manifest in `package.json` lists the five extensions and the skills directory. Pi loads them after the user trusts the vault, only in a session that starts at the vault root. |
@@ -105,7 +105,7 @@ the topic matches a journey
   └─ mirror_enter_journey → mirror-journey entry; the answer names the journey, and the user may correct it
 
 a record on request
-  └─ mirror_save_journal or mirror_record_correction writes a file in the journey's directory
+  └─ mirror_save_journal or mirror_record_correction writes a file in the journey's directory (a journal entry without a journey: in the vault's journal/)
 ```
 
 ## Guarantees and how they are enforced
