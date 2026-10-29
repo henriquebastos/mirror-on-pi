@@ -1,0 +1,33 @@
+# Level 2 of docs/evals.md: the behavior evals and the capability gate with real models. They cost money (about $12 at
+# list price per gate run), so they run only when started by hand. Set the repository secrets OPENAI_API_KEY and
+# ANTHROPIC_API_KEY first.
+name: capability
+on:
+  workflow_dispatch:
+jobs:
+  capability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: sudo apt-get update && sudo apt-get install -y ripgrep jq
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm doctor --probe
+      - run: MIRROR_EVAL_REPEAT=3 pnpm test:behavior
+      - run: pnpm test:capability "$RUNNER_TEMP/capability"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capability
+          path: |
+            ${{ runner.temp }}/capability/capability.md
+            ${{ runner.temp }}/capability/results.jsonl
+            ${{ runner.temp }}/capability/grades.jsonl
